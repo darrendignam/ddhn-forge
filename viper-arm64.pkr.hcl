@@ -67,8 +67,6 @@ source "qemu" "debian-bookworm-arm64" {
   qemu_binary      = "qemu-system-aarch64"
   machine_type     = "virt"
   cpu_model        = "cortex-a72"
-  efi_boot         = true
-  efi_firmware_code = "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
   
   disk_size        = var.disk_size
   disk_interface   = "virtio"
@@ -122,6 +120,11 @@ source "qemu" "debian-bookworm-arm64" {
   http_directory = "http"
 }
 
+  
+  # ARM64 UEFI firmware
+  qemuargs = [
+    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"]
+  ]
 build {
   sources = ["source.qemu.debian-bookworm-arm64"]
   
