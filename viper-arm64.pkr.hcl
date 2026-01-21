@@ -54,7 +54,7 @@ variable "iso_url" {
 
 variable "iso_checksum" {
   type    = string
-  default = "sha256:f4da950def34c7af3c385b8b903747f1dcb6fb9ecb07c44215b14eb1bd0e082c"
+  default = "sha256:b242a2c76375fb0b912afbc31bbf9a4c27276524daeea4e65e3d0da83eee9931"
 }
 
 source "qemu" "debian-bookworm-arm64" {
