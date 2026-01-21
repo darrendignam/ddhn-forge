@@ -96,32 +96,13 @@ source "qemu" "debian-bookworm-arm64" {
   # Shutdown command
   shutdown_command = "echo 'vagrant' | sudo -S shutdown -P now"
   
-  # Boot command for Debian preseed (ARM64 uses same preseed)
-  boot_wait = "5s"
-  boot_command = [
-    "<esc><wait>",
-    "auto <wait>",
-    "console-setup/ask_detect=false <wait>",
-    "console-keymaps-at/keymap=us <wait>",
-    "debconf/frontend=noninteractive <wait>",
-    "debian-installer=en_US.UTF-8 <wait>",
-    "fb=false <wait>",
-    "install <wait>",
-    "kbd-chooser/method=us <wait>",
-    "keyboard-configuration/xkb-keymap=us <wait>",
-    "locale=en_US.UTF-8 <wait>",
-    "netcfg/get_hostname=${var.vm_name} <wait>",
-    "netcfg/get_domain=viper.test <wait>",
-    "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg <wait>",
-    "<enter>"
-  ]
-  
   # Serve preseed file via HTTP
   http_directory = "http"
   
-  # ARM64 UEFI firmware
+  # ARM64 UEFI firmware - override args to avoid boot order issues
   qemuargs = [
-    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"]
+    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"],
+    ["-boot", "menu=on"]
   ]
 }
 
