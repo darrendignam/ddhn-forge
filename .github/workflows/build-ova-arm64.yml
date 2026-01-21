@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
-      - 'release-*'
+      - 'arm-release-*'
   workflow_dispatch:
 
 jobs:
