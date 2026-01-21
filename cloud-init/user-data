@@ -10,8 +10,9 @@ users:
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
     lock_passwd: false
-    # Password is 'debian' (hashed)
-    passwd: $6$rounds=4096$saltsalt$Lj8MPP7nFbSs8F3qXjJjCLfBCHVVVvOvvY0yC1Z3xQ0zGZBqW8v5VL6J8kKL8nLnJ8kKL8nLnJ8kKL8nLnJ8kK
+    # Password is 'debian' (SHA512 hash)
+    passwd: $6$rdzDj5k7uszs.fdn$DVEIRmSSsPFSWlGhHG129/R.bfJce8PHESVu9W9lR/8jBQr0P.vVk7ocRclff8f/zSi9vkDrs4fSRiY5oAJaS/
+    ssh_authorized_keys: []
 
 # Enable password authentication for SSH (for Packer)
 ssh_pwauth: true
