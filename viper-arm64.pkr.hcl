@@ -91,9 +91,9 @@ source "qemu" "debian-bookworm-arm64" {
   # Networking
   net_device       = "virtio-net"
   
-  # SSH settings for provisioning (cloud image uses 'debian' user by default)
-  ssh_username     = "debian"
-  ssh_password     = "debian"
+  # SSH settings for provisioning (using vagrant user created by cloud-init)
+  ssh_username     = "vagrant"
+  ssh_password     = "vagrant"
   ssh_timeout      = "10m"
   ssh_port         = 22
   
@@ -101,7 +101,7 @@ source "qemu" "debian-bookworm-arm64" {
   ssh_wait_timeout = "10m"
   
   # Shutdown command
-  shutdown_command = "echo 'debian' | sudo -S shutdown -P now"
+  shutdown_command = "echo 'vagrant' | sudo -S shutdown -P now"
   
   # Boot wait for cloud-init
   boot_wait = "30s"
@@ -122,16 +122,12 @@ source "qemu" "debian-bookworm-arm64" {
 build {
   sources = ["source.qemu.debian-bookworm-arm64"]
   
-  # Wait for cloud-init and create vagrant user
+  # Wait for cloud-init to complete before provisioning
   provisioner "shell" {
     inline = [
       "echo 'Waiting for cloud-init to complete...'",
       "sudo cloud-init status --wait || true",
-      "echo 'Creating vagrant user...'",
-      "sudo useradd -m -s /bin/bash vagrant || true",
-      "echo 'vagrant:vagrant' | sudo chpasswd",
-      "echo 'vagrant ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/vagrant",
-      "sudo chmod 0440 /etc/sudoers.d/vagrant",
+      "echo 'Cloud-init complete. Vagrant user created by cloud-init.'",
       "sudo apt-get update"
     ]
   }

@@ -4,7 +4,7 @@
 # Set hostname
 hostname: viper-arm64
 
-# Configure default user (debian)
+# Configure users
 users:
   - name: debian
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -13,6 +13,12 @@ users:
     # Password is 'debian' (SHA512 hash)
     passwd: $6$rdzDj5k7uszs.fdn$DVEIRmSSsPFSWlGhHG129/R.bfJce8PHESVu9W9lR/8jBQr0P.vVk7ocRclff8f/zSi9vkDrs4fSRiY5oAJaS/
     ssh_authorized_keys: []
+  - name: vagrant
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    # Password is 'vagrant' (SHA512 hash)
+    passwd: $6$FmmU11JankZabtie$I1WrQbEavNKq6bldaMOSa7sj.UD.Yrzse7K5sApejgTDAO7g0tvCP.1gs3WpIbfvfGhb1VCJBW9VauYHHikli0
 
 # Enable password authentication for SSH (for Packer)
 ssh_pwauth: true
