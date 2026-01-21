@@ -22,6 +22,7 @@ jobs:
             qemu-system-arm \
             qemu-efi-aarch64 \
             qemu-utils \
+            xorriso \
             ansible \
             python3-pip \
             wget \
