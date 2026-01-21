@@ -119,11 +119,6 @@ source "qemu" "debian-bookworm-arm64" {
   
   # Serve preseed file via HTTP
   http_directory = "http"
-  
-  # Additional QEMU arguments for ARM64 stability
-  qemuargs = [
-    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"]
-  ]
 }
 
 build {
