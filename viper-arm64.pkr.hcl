@@ -106,8 +106,11 @@ source "qemu" "debian-bookworm-arm64" {
   # Boot wait for cloud-init
   boot_wait = "30s"
   
-  # Cloud-init configuration via user-data
-  cd_files = ["./cloud-init/"]
+  # Cloud-init configuration via CD
+  cd_files = [
+    "cloud-init/meta-data",
+    "cloud-init/user-data"
+  ]
   cd_label = "cidata"
   
   # ARM64 UEFI firmware
