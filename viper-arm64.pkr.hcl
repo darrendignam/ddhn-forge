@@ -72,6 +72,7 @@ source "qemu" "debian-bookworm-arm64" {
   disk_interface   = "virtio"
   disk_compression = true
   format           = "qcow2"
+  use_backing_file = false
   
   cpus             = var.cpus
   memory           = var.memory
@@ -119,20 +120,10 @@ source "qemu" "debian-bookworm-arm64" {
   # Serve preseed file via HTTP
   http_directory = "http"
   
-  # Complete QEMU args override to prevent Packer from adding unsupported -boot once=d
-  # ARM64 doesn't support boot device ordering, so we let QEMU use natural boot order
+  # ARM64 UEFI firmware via qemuargs
+  # Must provide minimal args to add BIOS without Packer's auto -boot parameter
   qemuargs = [
-    ["-machine", "type=virt,accel=tcg"],
-    ["-cpu", "cortex-a72"],
-    ["-smp", "2"],
-    ["-m", "4096M"],
-    ["-name", "{{ .Name }}"],
-    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"],
-    ["-device", "virtio-net,netdev=user.0"],
-    ["-netdev", "user,id=user.0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
-    ["-drive", "file={{ .OutputDir }}/{{ .Name }},if=virtio,cache=writeback,discard=ignore,format=qcow2"],
-    ["-drive", "file={{ index .CDFiles 0 }},media=cdrom"],
-    ["-vnc", "{{ .HTTPIP }}:{{ .VNCPort }}"]
+    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"]
   ]
 }
 
