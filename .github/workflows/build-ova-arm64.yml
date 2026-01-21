@@ -65,12 +65,14 @@ jobs:
         run: |
           echo "Building ARM64 VM (this will take significantly longer due to TCG emulation)"
           
-          # Run packer build for ARM64
-          packer build \
+          # Run packer build for ARM64 with debug logging
+          PACKER_LOG=1 packer build \
             -var 'headless=true' \
             -var 'accelerator=tcg' \
             viper-arm64.pkr.hcl
         timeout-minutes: 180
+        env:
+          PACKER_LOG: 1
       
       - name: Verify build outputs
         run: |
