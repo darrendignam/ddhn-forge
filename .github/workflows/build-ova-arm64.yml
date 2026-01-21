@@ -38,6 +38,8 @@ jobs:
       
       - name: Initialize Packer plugins
         run: packer init viper-arm64.pkr.hcl
+        env:
+          PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Validate Packer template
         run: packer validate viper-arm64.pkr.hcl
