@@ -118,13 +118,13 @@ source "qemu" "debian-bookworm-arm64" {
   
   # Serve preseed file via HTTP
   http_directory = "http"
-}
-
   
   # ARM64 UEFI firmware
   qemuargs = [
     ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"]
   ]
+}
+
 build {
   sources = ["source.qemu.debian-bookworm-arm64"]
   
