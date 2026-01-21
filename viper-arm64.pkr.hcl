@@ -47,21 +47,25 @@ variable "output_directory" {
   default = "output-qemu-arm64"
 }
 
-variable "iso_url" {
+variable "cloud_image_url" {
   type    = string
-  default = "https://cdimage.debian.org/cdimage/archive/12.8.0/arm64/iso-cd/debian-12.8.0-arm64-netinst.iso"
+  default = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-arm64.qcow2"
 }
 
-variable "iso_checksum" {
+variable "cloud_image_checksum" {
   type    = string
-  default = "sha256:b242a2c76375fb0b912afbc31bbf9a4c27276524daeea4e65e3d0da83eee9931"
+  default = "none"
 }
 
 source "qemu" "debian-bookworm-arm64" {
   vm_name          = var.vm_name
-  iso_url          = var.iso_url
-  iso_checksum     = var.iso_checksum
+  iso_url          = var.cloud_image_url
+  iso_checksum     = var.cloud_image_checksum
+  iso_target_path  = "packer_cache/debian-12-generic-arm64.qcow2"
   output_directory = var.output_directory
+  
+  # Use existing disk image instead of installing from ISO
+  disk_image       = true
   
   # ARM64 specific QEMU settings
   qemu_binary      = "qemu-system-aarch64"
@@ -72,7 +76,6 @@ source "qemu" "debian-bookworm-arm64" {
   disk_interface   = "virtio"
   disk_compression = true
   format           = "qcow2"
-  use_backing_file = false
   
   cpus             = var.cpus
   memory           = var.memory
@@ -88,40 +91,26 @@ source "qemu" "debian-bookworm-arm64" {
   # Networking
   net_device       = "virtio-net"
   
-  # SSH settings for provisioning
-  ssh_username     = "vagrant"
-  ssh_password     = "vagrant"
-  ssh_timeout      = "45m"
+  # SSH settings for provisioning (cloud image uses 'debian' user by default)
+  ssh_username     = "debian"
+  ssh_password     = "debian"
+  ssh_timeout      = "10m"
   ssh_port         = 22
   
+  # Wait for cloud-init to finish before provisioning
+  ssh_wait_timeout = "10m"
+  
   # Shutdown command
-  shutdown_command = "echo 'vagrant' | sudo -S shutdown -P now"
+  shutdown_command = "echo 'debian' | sudo -S shutdown -P now"
   
-  # Boot command for Debian preseed (ARM64 automated installation)
-  boot_wait = "5s"
-  boot_command = [
-    "<esc><wait>",
-    "auto <wait>",
-    "console-setup/ask_detect=false <wait>",
-    "console-keymaps-at/keymap=us <wait>",
-    "debconf/frontend=noninteractive <wait>",
-    "debian-installer=en_US.UTF-8 <wait>",
-    "fb=false <wait>",
-    "install <wait>",
-    "kbd-chooser/method=us <wait>",
-    "keyboard-configuration/xkb-keymap=us <wait>",
-    "locale=en_US.UTF-8 <wait>",
-    "netcfg/get_hostname=${var.vm_name} <wait>",
-    "netcfg/get_domain=viper.test <wait>",
-    "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg <wait>",
-    "<enter>"
-  ]
+  # Boot wait for cloud-init
+  boot_wait = "30s"
   
-  # Serve preseed file via HTTP
-  http_directory = "http"
+  # Cloud-init configuration via user-data
+  cd_files = ["./cloud-init/"]
+  cd_label = "cidata"
   
-  # ARM64 UEFI firmware via qemuargs
-  # Must provide minimal args to add BIOS without Packer's auto -boot parameter
+  # ARM64 UEFI firmware
   qemuargs = [
     ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"]
   ]
@@ -130,10 +119,16 @@ source "qemu" "debian-bookworm-arm64" {
 build {
   sources = ["source.qemu.debian-bookworm-arm64"]
   
-  # Wait for system to be ready
+  # Wait for cloud-init and create vagrant user
   provisioner "shell" {
     inline = [
-      "echo 'Waiting for ARM64 system to be ready...'",
+      "echo 'Waiting for cloud-init to complete...'",
+      "sudo cloud-init status --wait || true",
+      "echo 'Creating vagrant user...'",
+      "sudo useradd -m -s /bin/bash vagrant || true",
+      "echo 'vagrant:vagrant' | sudo chpasswd",
+      "echo 'vagrant ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/vagrant",
+      "sudo chmod 0440 /etc/sudoers.d/vagrant",
       "sudo apt-get update"
     ]
   }
@@ -142,7 +137,7 @@ build {
   provisioner "ansible" {
     playbook_file = "ansible/packer.yml"
     user = "vagrant"
-    extra_arguments = ["-vv"]
+    extra_arguments = ["-vv", "--become"]
   }
   
   # Rename QCOW2 file to include .qcow2 extension

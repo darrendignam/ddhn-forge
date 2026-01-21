@@ -1,0 +1,38 @@
+#cloud-config
+# Cloud-init configuration for ViPER ARM64
+
+# Set hostname
+hostname: viper-arm64
+
+# Configure default user (debian)
+users:
+  - name: debian
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    # Password is 'debian' (hashed)
+    passwd: $6$rounds=4096$saltsalt$Lj8MPP7nFbSs8F3qXjJjCLfBCHVVVvOvvY0yC1Z3xQ0zGZBqW8v5VL6J8kKL8nLnJ8kKL8nLnJ8kKL8nLnJ8kK
+
+# Enable password authentication for SSH (for Packer)
+ssh_pwauth: true
+
+# Run commands on first boot
+runcmd:
+  - echo "Cloud-init setup complete for ViPER ARM64"
+  - systemctl enable ssh
+  - systemctl start ssh
+
+# Set timezone
+timezone: UTC
+
+# Package updates
+package_update: true
+package_upgrade: false
+
+# Grow root partition to fill disk
+growpart:
+  mode: auto
+  devices: ['/']
+
+# Final message
+final_message: "ViPER ARM64 cloud-init complete after $UPTIME seconds"
