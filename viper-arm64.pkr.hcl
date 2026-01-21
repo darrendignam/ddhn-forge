@@ -131,7 +131,7 @@ source "qemu" "debian-bookworm-arm64" {
     ["-device", "virtio-net,netdev=user.0"],
     ["-netdev", "user,id=user.0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
     ["-drive", "file={{ .OutputDir }}/{{ .Name }},if=virtio,cache=writeback,discard=ignore,format=qcow2"],
-    ["-drive", "file={{ .ISOPath }},media=cdrom"],
+    ["-drive", "file={{ index .CDFiles 0 }},media=cdrom"],
     ["-vnc", "{{ .HTTPIP }}:{{ .VNCPort }}"]
   ]
 }
