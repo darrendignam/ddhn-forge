@@ -1,0 +1,240 @@
+name: Build ViPER ARM64 (Apple Silicon & Windows ARM)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'release-*'
+  workflow_dispatch:
+
+jobs:
+  build-arm64:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install ARM64 build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            qemu-system-arm \
+            qemu-efi-aarch64 \
+            qemu-utils \
+            ansible \
+            python3-pip \
+            wget \
+            unzip
+          pip3 install jmespath
+      
+      - name: Install Packer
+        run: |
+          PACKER_VERSION="1.11.2"
+          wget -q https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip
+          unzip packer_${PACKER_VERSION}_linux_amd64.zip
+          sudo mv packer /usr/local/bin/
+          packer version
+      
+      - name: Initialize Packer plugins
+        run: packer init viper-arm64.pkr.hcl
+      
+      - name: Validate Packer template
+        run: packer validate viper-arm64.pkr.hcl
+      
+      - name: Free up disk space before build
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          # Remove unnecessary packages to free space
+          sudo apt-get clean
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          echo "Disk space after cleanup:"
+          df -h
+      
+      - name: Verify ARM64 QEMU availability
+        run: |
+          which qemu-system-aarch64
+          qemu-system-aarch64 --version
+          ls -la /usr/share/qemu-efi-aarch64/ || echo "UEFI firmware check"
+      
+      - name: Build ARM64 VM with Packer
+        run: |
+          echo "Building ARM64 VM (this will take significantly longer due to TCG emulation)"
+          
+          # Run packer build for ARM64
+          packer build \
+            -var 'headless=true' \
+            -var 'accelerator=tcg' \
+            viper-arm64.pkr.hcl
+        timeout-minutes: 180
+      
+      - name: Verify build outputs
+        run: |
+          echo "Checking build outputs..."
+          ls -lh output-qemu-arm64/
+          if [ -f "output-qemu-arm64/viper-v1.2-alpha-arm64.qcow2" ]; then
+            echo "✓ QCOW2 file created successfully"
+            qemu-img info output-qemu-arm64/viper-v1.2-alpha-arm64.qcow2
+          fi
+          if [ -f "output-qemu-arm64/viper-v1.2-alpha-arm64.vhdx" ]; then
+            echo "✓ VHDX file created successfully"
+            qemu-img info output-qemu-arm64/viper-v1.2-alpha-arm64.vhdx
+          fi
+      
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          # Sanitize version for filesystem safety
+          VERSION_SAFE=$(echo "$VERSION" | tr '/' '-' | tr ':' '-')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION_SAFE=$VERSION_SAFE" >> $GITHUB_OUTPUT
+          echo "Original version: $VERSION"
+          echo "Safe version: $VERSION_SAFE"
+      
+      - name: Parse repository info
+        id: repo
+        run: |
+          # Sanitize repo name for filesystem-safe paths
+          REPO_SAFE=$(echo "${{ github.repository }}" | tr '/' '-')
+          echo "REPO_SAFE=${REPO_SAFE}" >> $GITHUB_OUTPUT
+          echo "REPO_FULL=${{ github.repository }}" >> $GITHUB_OUTPUT
+          echo "Repository: ${{ github.repository }}"
+          echo "Safe name: ${REPO_SAFE}"
+      
+      - name: Get commit info
+        id: commit
+        run: |
+          echo "HASH=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "MESSAGE<<EOF" >> $GITHUB_OUTPUT
+          git log -1 --pretty=%B >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Upload ARM64 metadata
+        run: |
+          WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          cat > arm64-metadata.json <<EOF
+          {
+            "repo_url": "https://github.com/${{ github.repository }}",
+            "tag": "${{ steps.version.outputs.VERSION }}",
+            "architecture": "arm64",
+            "platform": "Apple Silicon (M1/M2/M3) & Windows ARM",
+            "tag_message": ${{ toJSON(steps.commit.outputs.MESSAGE) }},
+            "commit_hash": "${{ steps.commit.outputs.HASH }}",
+            "commit_url": "https://github.com/${{ github.repository }}/commit/${{ steps.commit.outputs.HASH }}",
+            "build_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "description": "ViPER ARM64 VM images for Apple Silicon and Windows ARM devices",
+            "workflow_url": "${WORKFLOW_URL}",
+            "formats": ["QCOW2", "VHDX"]
+          }
+          EOF
+          
+          # Upload metadata
+          curl -X POST "https://artifacts.opf-labs.org/upload/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}/metadata-arm64" \
+            -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d @arm64-metadata.json \
+            --fail-with-body || echo "Metadata upload failed (endpoint may not be available yet), continuing..."
+          
+          echo "ARM64 metadata upload attempted"
+      
+      - name: Upload ARM64 QCOW2 to artifact server
+        run: |
+          QCOW2_FILE="output-qemu-arm64/viper-v1.2-alpha-arm64.qcow2"
+          if [ -f "$QCOW2_FILE" ]; then
+            echo "Uploading ARM64 QCOW2 image..."
+            MD5_HASH=$(md5sum "$QCOW2_FILE" | awk '{print $1}')
+            SHA256_HASH=$(sha256sum "$QCOW2_FILE" | awk '{print $1}')
+            
+            curl -X POST "https://artifacts.opf-labs.org/upload/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}" \
+              -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
+              -F "file=@${QCOW2_FILE}" \
+              -F "md5=${MD5_HASH}" \
+              -F "sha256=${SHA256_HASH}" \
+              -F "file_type=ARM64 QCOW2 Disk Image (Apple Silicon/UTM)" \
+              -F "architecture=arm64" \
+              --max-time 18000 \
+              --fail-with-body
+            
+            echo "ARM64 QCOW2 uploaded successfully, removing to free space..."
+            rm -f "$QCOW2_FILE"
+            df -h
+          else
+            echo "ARM64 QCOW2 file not found, skipping upload"
+            exit 1
+          fi
+      
+      - name: Upload ARM64 VHDX to artifact server
+        run: |
+          VHDX_FILE="output-qemu-arm64/viper-v1.2-alpha-arm64.vhdx"
+          if [ -f "$VHDX_FILE" ]; then
+            echo "Uploading ARM64 VHDX image..."
+            MD5_HASH=$(md5sum "$VHDX_FILE" | awk '{print $1}')
+            SHA256_HASH=$(sha256sum "$VHDX_FILE" | awk '{print $1}')
+            
+            curl -X POST "https://artifacts.opf-labs.org/upload/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}" \
+              -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
+              -F "file=@${VHDX_FILE}" \
+              -F "md5=${MD5_HASH}" \
+              -F "sha256=${SHA256_HASH}" \
+              -F "file_type=ARM64 VHDX Disk Image (Windows ARM/Hyper-V)" \
+              -F "architecture=arm64" \
+              --max-time 18000 \
+              --fail-with-body
+            
+            echo "ARM64 VHDX uploaded successfully"
+            echo "Download URL: https://artifacts.opf-labs.org/browse/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}"
+          else
+            echo "ARM64 VHDX file not found, skipping upload"
+            exit 1
+          fi
+      
+      - name: Create release with ARM64 download links
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: false
+          prerelease: false
+          append_body: true
+          body: |
+            
+            ---
+            
+            ## ARM64 Builds (Apple Silicon & Windows ARM)
+            
+            **Browse all ARM64 files:** https://artifacts.opf-labs.org/browse/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}
+            
+            **Direct downloads:**
+            - **QCOW2 (Apple Silicon/UTM)**: https://artifacts.opf-labs.org/download/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}/viper-v1.2-alpha-arm64.qcow2
+            - **VHDX (Windows ARM/Hyper-V)**: https://artifacts.opf-labs.org/download/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}/viper-v1.2-alpha-arm64.vhdx
+            
+            ### Installation Instructions
+            
+            **For Apple Silicon (M1/M2/M3 Macs):**
+            1. Download the QCOW2 file
+            2. Use [UTM](https://mac.getutm.app/) or Parallels Desktop
+            3. Import as existing VM or create new VM pointing to QCOW2
+            
+            **For Windows ARM (Surface Pro X, etc.):**
+            1. Download the VHDX file
+            2. Open Hyper-V Manager
+            3. Create new VM and attach the VHDX as disk
+            
+            ### Technical Specifications
+            - **Architecture**: ARM64 (aarch64)
+            - **OS**: Debian 12 (Bookworm) ARM64
+            - **CPUs**: 2 vCPUs
+            - **Memory**: 4GB RAM
+            - **Disk**: 25GB
+            - **Credentials**: vagrant/vagrant
+            
+            ### Checksums
+            MD5 and SHA256 checksums are available on the browse page.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

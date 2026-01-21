@@ -13,6 +13,10 @@ viper_icons_share: "{{ viper_usr_share }}/icons"
 # Account name
 viper_account_name: "{{ viper_env_user_name | default('viper') }}"
 
+# Architecture detection for cross-platform builds
+# Maps Ansible's architecture to Debian package architecture naming
+viper_architecture: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
+
 # Tools installed via Debian package manager
 viper_debian_tools:
   # Debian handbrake installation
@@ -128,17 +132,17 @@ viper:
         src: "{{ viper_src }}/veraPDF/{{ verapdf_version }}"
     mediaarea:
       - name: "libzen0"
-        download_url: "https://mediaarea.net/download/binary/libzen0/0.4.41/libzen0v5_0.4.41-1_amd64.Debian_12.deb"
-        package_name: "libzen0v5_0.4.41-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/libzen0/0.4.41/libzen0v5_0.4.41-1_{{ viper_architecture }}.Debian_12.deb"
+        package_name: "libzen0v5_0.4.41-1_{{ viper_architecture }}.Debian_12.deb"
       - name: "libmediainfo0"
-        download_url: "https://mediaarea.net/download/binary/libmediainfo0/24.04/libmediainfo0v5_24.04-1_amd64.Debian_12.deb"
-        package_name: "libmediainfo0v5_24.04-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/libmediainfo0/24.04/libmediainfo0v5_24.04-1_{{ viper_architecture }}.Debian_12.deb"
+        package_name: "libmediainfo0v5_24.04-1_{{ viper_architecture }}.Debian_12.deb"
       - name: "libmediaconch0"
-        download_url: "https://mediaarea.net/download/binary/libmediaconch0/23.10/libmediaconch0_23.10-1_amd64.Debian_12.deb"
-        package_name: "libmediaconch0_23.10-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/libmediaconch0/23.10/libmediaconch0_23.10-1_{{ viper_architecture }}.Debian_12.deb"
+        package_name: "libmediaconch0_23.10-1_{{ viper_architecture }}.Debian_12.deb"
       - name: "mediainfo-gui"
-        download_url: "https://mediaarea.net/download/binary/mediainfo-gui/24.04/mediainfo-gui_24.04-1_amd64.Debian_12.deb"
-        package_name: "mediainfo-gui_24.04-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/mediainfo-gui/24.04/mediainfo-gui_24.04-1_{{ viper_architecture }}.Debian_12.deb"
+        package_name: "mediainfo-gui_24.04-1_{{ viper_architecture }}.Debian_12.deb"
       - name: "mediaconch-gui"
-        download_url: "https://mediaarea.net/download/binary/mediaconch-gui/23.10/mediaconch-gui_23.10-1_amd64.Debian_12.deb"
-        package_name: "mediaconch-gui_23.10-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/mediaconch-gui/23.10/mediaconch-gui_23.10-1_{{ viper_architecture }}.Debian_12.deb"
+        package_name: "mediaconch-gui_23.10-1_{{ viper_architecture }}.Debian_12.deb"
