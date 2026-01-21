@@ -67,6 +67,9 @@ source "qemu" "debian-bookworm-arm64" {
   qemu_binary      = "qemu-system-aarch64"
   machine_type     = "virt"
   cpu_model        = "cortex-a72"
+  efi_boot         = true
+  efi_firmware_code = "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
+  efi_firmware_vars = "/usr/share/qemu-efi-aarch64/QEMU_VARS.fd"
   
   disk_size        = var.disk_size
   disk_interface   = "virtio"
