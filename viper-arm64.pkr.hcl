@@ -96,13 +96,43 @@ source "qemu" "debian-bookworm-arm64" {
   # Shutdown command
   shutdown_command = "echo 'vagrant' | sudo -S shutdown -P now"
   
+  # Boot command for Debian preseed (ARM64 automated installation)
+  boot_wait = "5s"
+  boot_command = [
+    "<esc><wait>",
+    "auto <wait>",
+    "console-setup/ask_detect=false <wait>",
+    "console-keymaps-at/keymap=us <wait>",
+    "debconf/frontend=noninteractive <wait>",
+    "debian-installer=en_US.UTF-8 <wait>",
+    "fb=false <wait>",
+    "install <wait>",
+    "kbd-chooser/method=us <wait>",
+    "keyboard-configuration/xkb-keymap=us <wait>",
+    "locale=en_US.UTF-8 <wait>",
+    "netcfg/get_hostname=${var.vm_name} <wait>",
+    "netcfg/get_domain=viper.test <wait>",
+    "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg <wait>",
+    "<enter>"
+  ]
+  
   # Serve preseed file via HTTP
   http_directory = "http"
   
-  # ARM64 UEFI firmware - override args to avoid boot order issues
+  # Complete QEMU args override to prevent Packer from adding unsupported -boot once=d
+  # ARM64 doesn't support boot device ordering, so we let QEMU use natural boot order
   qemuargs = [
+    ["-machine", "type=virt,accel=tcg"],
+    ["-cpu", "cortex-a72"],
+    ["-smp", "2"],
+    ["-m", "4096M"],
+    ["-name", "{{ .Name }}"],
     ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"],
-    ["-boot", "menu=on"]
+    ["-device", "virtio-net,netdev=user.0"],
+    ["-netdev", "user,id=user.0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
+    ["-drive", "file={{ .OutputDir }}/{{ .Name }},if=virtio,cache=writeback,discard=ignore,format=qcow2"],
+    ["-drive", "file={{ .ISOPath }},media=cdrom"],
+    ["-vnc", "{{ .HTTPIP }}:{{ .VNCPort }}"]
   ]
 }
 
