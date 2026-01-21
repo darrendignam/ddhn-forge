@@ -54,7 +54,7 @@ variable "cloud_image_url" {
 
 variable "cloud_image_checksum" {
   type    = string
-  default = "none"
+  default = "sha256:bd8a96db1f1ac2f47269e1b2041240c48931c137ab6b7d2d5e17b45c5bb23f42"
 }
 
 source "qemu" "debian-bookworm-arm64" {
