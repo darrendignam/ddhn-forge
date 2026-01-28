@@ -10,6 +10,12 @@ on:
 jobs:
   build-arm64:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      version_safe: ${{ steps.version.outputs.VERSION_SAFE }}
+      repo_safe: ${{ steps.repo.outputs.REPO_SAFE }}
+      commit_hash: ${{ steps.commit.outputs.HASH }}
+      commit_message: ${{ steps.commit.outputs.MESSAGE }}
     
     steps:
       - name: Checkout repository
@@ -120,7 +126,23 @@ jobs:
           git log -1 --pretty=%B >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
       
-      - name: Upload ARM64 metadata
+      - name: Store QCOW2 as GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: viper-arm64-qcow2
+          path: output-qemu-arm64/viper-v1.2-alpha-arm64.qcow2
+          retention-days: 1
+          compression-level: 0
+      
+      - name: Store VHDX as GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: viper-arm64-vhdx
+          path: output-qemu-arm64/viper-v1.2-alpha-arm64.vhdx
+          retention-days: 1
+          compression-level: 0
+      
+      - name: Upload metadata only
         run: |
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
@@ -140,69 +162,81 @@ jobs:
           }
           EOF
           
-          # Upload metadata
           curl -X POST "https://artifacts.opf-labs.org/upload/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}/metadata-arm64" \
             -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d @arm64-metadata.json \
-            --fail-with-body || echo "Metadata upload failed (endpoint may not be available yet), continuing..."
+            --fail-with-body || echo "Metadata upload failed, continuing..."
+  
+  upload-qcow2:
+    needs: build-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download QCOW2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: viper-arm64-qcow2
+      
+      - name: Upload QCOW2 to artifact server
+        run: |
+          QCOW2_FILE="viper-v1.2-alpha-arm64.qcow2"
+          echo "Uploading ARM64 QCOW2 image..."
+          MD5_HASH=$(md5sum "$QCOW2_FILE" | awk '{print $1}')
+          SHA256_HASH=$(sha256sum "$QCOW2_FILE" | awk '{print $1}')
           
-          echo "ARM64 metadata upload attempted"
+          curl -X POST "https://artifacts.opf-labs.org/upload/${{ needs.build-arm64.outputs.repo_safe }}/${{ needs.build-arm64.outputs.version_safe }}" \
+            -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
+            -F "file=@${QCOW2_FILE}" \
+            -F "md5=${MD5_HASH}" \
+            -F "sha256=${SHA256_HASH}" \
+            -F "file_type=ARM64 QCOW2 Disk Image (Apple Silicon/UTM)" \
+            -F "architecture=arm64" \
+            --max-time 18000 \
+            --fail-with-body
+          
+          echo "ARM64 QCOW2 uploaded successfully"
+        timeout-minutes: 180
+  
+  upload-vhdx:
+    needs: build-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VHDX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: viper-arm64-vhdx
       
-      - name: Upload ARM64 QCOW2 to artifact server
+      - name: Upload VHDX to artifact server
         run: |
-          QCOW2_FILE="output-qemu-arm64/viper-v1.2-alpha-arm64.qcow2"
-          if [ -f "$QCOW2_FILE" ]; then
-            echo "Uploading ARM64 QCOW2 image..."
-            MD5_HASH=$(md5sum "$QCOW2_FILE" | awk '{print $1}')
-            SHA256_HASH=$(sha256sum "$QCOW2_FILE" | awk '{print $1}')
-            
-            curl -X POST "https://artifacts.opf-labs.org/upload/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}" \
-              -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
-              -F "file=@${QCOW2_FILE}" \
-              -F "md5=${MD5_HASH}" \
-              -F "sha256=${SHA256_HASH}" \
-              -F "file_type=ARM64 QCOW2 Disk Image (Apple Silicon/UTM)" \
-              -F "architecture=arm64" \
-              --max-time 18000 \
-              --fail-with-body
-            
-            echo "ARM64 QCOW2 uploaded successfully, removing to free space..."
-            rm -f "$QCOW2_FILE"
-            df -h
-          else
-            echo "ARM64 QCOW2 file not found, skipping upload"
-            exit 1
-          fi
+          VHDX_FILE="viper-v1.2-alpha-arm64.vhdx"
+          echo "Uploading ARM64 VHDX image..."
+          MD5_HASH=$(md5sum "$VHDX_FILE" | awk '{print $1}')
+          SHA256_HASH=$(sha256sum "$VHDX_FILE" | awk '{print $1}')
+          
+          curl -X POST "https://artifacts.opf-labs.org/upload/${{ needs.build-arm64.outputs.repo_safe }}/${{ needs.build-arm64.outputs.version_safe }}" \
+            -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
+            -F "file=@${VHDX_FILE}" \
+            -F "md5=${MD5_HASH}" \
+            -F "sha256=${SHA256_HASH}" \
+            -F "file_type=ARM64 VHDX Disk Image (Windows ARM/Hyper-V)" \
+            -F "architecture=arm64" \
+            --max-time 18000 \
+            --fail-with-body
+          
+          echo "ARM64 VHDX uploaded successfully"
+        timeout-minutes: 180
+  
+  create-release:
+    needs: [build-arm64, upload-qcow2, upload-vhdx]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       
-      - name: Upload ARM64 VHDX to artifact server
-        run: |
-          VHDX_FILE="output-qemu-arm64/viper-v1.2-alpha-arm64.vhdx"
-          if [ -f "$VHDX_FILE" ]; then
-            echo "Uploading ARM64 VHDX image..."
-            MD5_HASH=$(md5sum "$VHDX_FILE" | awk '{print $1}')
-            SHA256_HASH=$(sha256sum "$VHDX_FILE" | awk '{print $1}')
-            
-            curl -X POST "https://artifacts.opf-labs.org/upload/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}" \
-              -H "Authorization: Bearer ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}" \
-              -F "file=@${VHDX_FILE}" \
-              -F "md5=${MD5_HASH}" \
-              -F "sha256=${SHA256_HASH}" \
-              -F "file_type=ARM64 VHDX Disk Image (Windows ARM/Hyper-V)" \
-              -F "architecture=arm64" \
-              --max-time 18000 \
-              --fail-with-body
-            
-            echo "ARM64 VHDX uploaded successfully"
-            echo "Download URL: https://artifacts.opf-labs.org/browse/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}"
-          else
-            echo "ARM64 VHDX file not found, skipping upload"
-            exit 1
-          fi
       
       - name: Create release with ARM64 download links
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           draft: false
           prerelease: false
@@ -213,11 +247,11 @@ jobs:
             
             ## ARM64 Builds (Apple Silicon & Windows ARM)
             
-            **Browse all ARM64 files:** https://artifacts.opf-labs.org/browse/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}
+            **Browse all ARM64 files:** https://artifacts.opf-labs.org/browse/${{ needs.build-arm64.outputs.repo_safe }}/${{ needs.build-arm64.outputs.version_safe }}
             
             **Direct downloads:**
-            - **QCOW2 (Apple Silicon/UTM)**: https://artifacts.opf-labs.org/download/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}/viper-v1.2-alpha-arm64.qcow2
-            - **VHDX (Windows ARM/Hyper-V)**: https://artifacts.opf-labs.org/download/${{ steps.repo.outputs.REPO_SAFE }}/${{ steps.version.outputs.VERSION_SAFE }}/viper-v1.2-alpha-arm64.vhdx
+            - **QCOW2 (Apple Silicon/UTM)**: https://artifacts.opf-labs.org/download/${{ needs.build-arm64.outputs.repo_safe }}/${{ needs.build-arm64.outputs.version_safe }}/viper-v1.2-alpha-arm64.qcow2
+            - **VHDX (Windows ARM/Hyper-V)**: https://artifacts.opf-labs.org/download/${{ needs.build-arm64.outputs.repo_safe }}/${{ needs.build-arm64.outputs.version_safe }}/viper-v1.2-alpha-arm64.vhdx
             
             ### Installation Instructions
             
