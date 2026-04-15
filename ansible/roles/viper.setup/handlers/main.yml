@@ -27,4 +27,3 @@
       echo "ERROR: No grub update tool found" >&2
       exit 1
     fi
-
