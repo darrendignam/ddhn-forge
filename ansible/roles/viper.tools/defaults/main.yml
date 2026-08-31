@@ -48,8 +48,11 @@ droid_patch: "13"
 droid_version: "{{ droid_major }}.{{ droid_minor }}.{{ droid_patch }}"
 
 # Apache Tika version details
-tika_major: "3"
-tika_minor: "3"
+# Held at the 2.x line deliberately. Tika 3.x is a major version and this image
+# already carries four pre-release tools; adding an untested major bump on top
+# makes a failure hard to attribute. Revisit once the rest has settled.
+tika_major: "2"
+tika_minor: "9"
 tika_patch: "2"
 tika_version: "{{ tika_major }}.{{ tika_minor }}.{{ tika_patch }}"
 
