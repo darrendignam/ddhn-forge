@@ -1,0 +1,22 @@
+---
+# OpenFixity installation for viper.tools
+#
+# Ships as a .deb from GitHub releases, so apt resolves its dependencies rather than
+# us unpacking it by hand. Taken from GitHub rather than the OPF artifact server so
+# the build does not depend on that server being reachable.
+
+- name: "OPENFIXITY | Download the Debian package."
+  get_url:
+    url: "{{ viper.tools.openfixity.source.loc }}"
+    dest: "/tmp/openfixity-{{ openfixity_version }}-amd64.deb"
+    mode: '0644'
+
+- name: "OPENFIXITY | Install the Debian package."
+  apt:
+    deb: "/tmp/openfixity-{{ openfixity_version }}-amd64.deb"
+    state: present
+
+- name: "OPENFIXITY | Remove the downloaded package."
+  file:
+    path: "/tmp/openfixity-{{ openfixity_version }}-amd64.deb"
+    state: absent

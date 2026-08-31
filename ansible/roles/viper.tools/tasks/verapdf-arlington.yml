@@ -1,0 +1,37 @@
+---
+# veraPDF Arlington installation for viper.tools
+#
+# The Arlington PDF model build, installed alongside the standard veraPDF rather than
+# replacing it, into its own lib directory so the two do not collide. Same izpack
+# installer form as veraPDF, driven by its own headless answer file.
+#
+# Note this comes from software.verapdf.org/dev/ and is versioned by build number, so
+# it pins a development build rather than a release tag.
+
+- name: "veraPDF ARLINGTON | Create installer root."
+  file:
+    path: "{{ viper.tools['verapdf-arlington'].installer.root }}"
+    state: directory
+    mode: '0755'
+
+- name: "veraPDF ARLINGTON | Download and unpack installer."
+  unarchive:
+    src: "{{ viper.tools['verapdf-arlington'].installer.loc }}"
+    dest: "{{ viper.tools['verapdf-arlington'].installer.root }}"
+    remote_src: yes
+
+- name: "veraPDF ARLINGTON | Copy custom installation config."
+  template:
+    src: "tmp/verapdf-arlington-install.xml"
+    dest: "/tmp/verapdf-arlington-install.xml"
+
+- name: "veraPDF ARLINGTON | Run installation script"
+  command: "{{ viper.tools['verapdf-arlington'].installer.script }} /tmp/verapdf-arlington-install.xml"
+  args:
+    creates: "{{ viper.tools['verapdf-arlington'].dests.lib }}/verapdf"
+
+- name: "veraPDF ARLINGTON | Create symlink for CLI shell file."
+  file:
+    src: "{{ viper.tools['verapdf-arlington'].dests.lib }}/verapdf"
+    dest: "{{ viper.tools['verapdf-arlington'].dests.bin }}/verapdf-arlington"
+    state: link

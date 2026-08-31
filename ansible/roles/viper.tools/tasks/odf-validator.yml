@@ -1,0 +1,30 @@
+---
+# ODF Validator installation for viper.tools
+#
+# Deliberately no desktop entry. CloudViPER exists to put these tools in front of
+# people who cannot install CLI tools themselves, but odf-validator has no GUI, so
+# an icon would launch nothing. It is on PATH for anyone who wants it.
+#
+# The -all.jar is taken rather than the native -linux binary: the jar is 20 MB and
+# runs on the JRE already installed, where the native build bundles its own runtime
+# for 80 MB on an image that was just halved.
+
+- name: "ODF VALIDATOR | Create target directory for install"
+  file:
+    path: "{{ viper_lib }}/odf-validator"
+    state: directory
+    mode: '0755'
+
+- name: "ODF VALIDATOR | Download the application jar."
+  get_url:
+    url: "{{ viper.tools['odf-validator'].source.loc }}"
+    dest: "{{ viper_lib }}/odf-validator/odf-validator-{{ odf_validator_version }}-all.jar"
+    mode: '0644'
+
+- name: "ODF VALIDATOR | Create CLI wrapper."
+  copy:
+    dest: "{{ viper_bin }}/odf-validator"
+    mode: '0755'
+    content: |
+      #!/bin/sh
+      exec java -jar {{ viper_lib }}/odf-validator/odf-validator-{{ odf_validator_version }}-all.jar "$@"

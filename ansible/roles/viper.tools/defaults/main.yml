@@ -59,6 +59,18 @@ fido_version: "1.6.1"
 # jpylyzer version details
 jpylyzer_version: "2.2.1"
 
+# Pre-release, and deliberately so: 0.20-beta-1 carries substantial improvements over
+# the 0.18.x line and was on its way to becoming a release candidate.
+odf_validator_version: "0.20-beta-1"
+
+# Distributed only as an alpha, from GitHub releases rather than a package repository.
+openfixity_version: "0.1.1-ALPHA"
+
+# The Arlington PDF model build is published under /dev/ and versioned by build number,
+# so this pins a build rather than a release tag.
+verapdf_arlington_line: "1.31"
+verapdf_arlington_version: "1.31.174"
+
 viper:
   tools:
     jhove:
@@ -141,6 +153,33 @@ viper:
       source:
         git: "https://github.com/openpreserve/jpylyzer.git"
         tag: "{{ jpylyzer_version }}"
+    odf-validator:
+      name: "odf-validator"
+      version: "{{ odf_validator_version }}"
+      source:
+        git: "https://github.com/openpreserve/odf-validator.git"
+        tag: "v{{ odf_validator_version }}"
+        loc: "https://github.com/openpreserve/odf-validator/releases/download/v{{ odf_validator_version }}/odf-validator-{{ odf_validator_version }}-all.jar"
+    openfixity:
+      name: "openfixity"
+      version: "{{ openfixity_version }}"
+      source:
+        git: "https://github.com/openpreserve/OpenFixity.git"
+        tag: "v{{ openfixity_version }}"
+        loc: "https://github.com/openpreserve/OpenFixity/releases/download/v{{ openfixity_version }}/OpenFixity-{{ openfixity_version }}-linux-x64.deb"
+    verapdf-arlington:
+      name: "verapdf-arlington"
+      version: "{{ verapdf_arlington_version }}"
+      source:
+        git: "https://github.com/veraPDF/veraPDF-library.git"
+        tag: "arlington-{{ verapdf_arlington_version }}"
+      installer:
+        loc: "https://software.verapdf.org/dev/arlington/{{ verapdf_arlington_line }}/verapdf-arlington-{{ verapdf_arlington_version }}-installer.zip"
+        root: "/tmp/vera-arlington-installer"
+        script: "/tmp/vera-arlington-installer/verapdf-arlington-{{ verapdf_arlington_version }}/verapdf-install"
+      dests:
+        bin: "{{ viper_bin }}"
+        lib: "{{ viper_lib }}/veraPDF-arlington/{{ verapdf_arlington_version }}"
     mediaarea:
       - name: "libzen0"
         download_url: "https://mediaarea.net/download/binary/libzen0/0.4.41/libzen0v5_0.4.41-1_amd64.Debian_12.deb"

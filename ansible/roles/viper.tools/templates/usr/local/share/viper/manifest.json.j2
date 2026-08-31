@@ -4,23 +4,37 @@
   This replaces the tool source trees that used to be cloned into /usr/local/src.
   The provenance that mattered was which upstream tag each tool was built from,
   and that is a few hundred bytes rather than a few gigabytes.
+
+  Tools differ in how they are installed, so "installer" is whichever of the
+  installer or source download URL applies, and is omitted for tools that come
+  from a package index rather than a URL.
 #}
-{% set tool_names = ["jhove", "droid", "tika", "verapdf"] %}
+{% set tool_names = [
+     "jhove", "droid", "tika", "verapdf", "verapdf-arlington",
+     "fido", "jpylyzer", "odf-validator", "openfixity"
+   ] %}
 {% set tools = {} %}
 {% for name in tool_names %}
-{% set _ = tools.update({
-     name: {
-       "version": viper.tools[name].version,
-       "repository": viper.tools[name].source.git,
-       "tag": viper.tools[name].source.tag,
-       "installer": viper.tools[name].installer.loc
-     }
-   }) %}
+{% set tool = viper.tools[name] %}
+{% set entry = {
+     "version": tool.version,
+     "repository": tool.source.git,
+     "tag": tool.source.tag
+   } %}
+{% if tool.installer is defined %}
+{% set _ = entry.update({"installer": tool.installer.loc}) %}
+{% elif tool.source.loc is defined %}
+{% set _ = entry.update({"installer": tool.source.loc}) %}
+{% elif tool.package is defined %}
+{% set _ = entry.update({"package": tool.package}) %}
+{% endif %}
+{% set _ = tools.update({name: entry}) %}
 {% endfor %}
 {{ {
   "viper_version": viper_version | default("0.0.0-dev"),
   "built": ansible_date_time.iso8601,
   "os": ansible_distribution ~ " " ~ ansible_distribution_version ~ " (" ~ ansible_distribution_release ~ ")",
+  "platform": (ansible_virtualization_type == "docker") | ternary("container", "vm"),
   "tools": tools,
   "mediaarea": viper.tools.mediaarea | map(attribute="package_name") | list,
   "debian_packages": viper_debian_tools
