@@ -18,5 +18,21 @@
 - name: "ViPER TOOLS | Install veraPDF."
   import_tasks: verapdf.yml
 
+- name: "ViPER TOOLS | Install veraPDF Arlington."
+  import_tasks: verapdf-arlington.yml
+
+- name: "ViPER TOOLS | Install FIDO."
+  import_tasks: fido.yml
+
+- name: "ViPER TOOLS | Install jpylyzer."
+  import_tasks: jpylyzer.yml
+
+- name: "ViPER TOOLS | Install ODF Validator."
+  import_tasks: odf-validator.yml
+
+- name: "ViPER TOOLS | Install OpenFixity."
+  import_tasks: openfixity.yml
+
+# Last, so it records everything the tasks above actually installed.
 - name: "ViPER TOOLS | Record installed tool versions."
   import_tasks: manifest.yml

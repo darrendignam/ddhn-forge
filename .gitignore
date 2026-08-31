@@ -1,5 +1,8 @@
 .vagrant
 
+# Docker
+volumes/
+
 # Packer
 packer_cache/
 output-qemu/
