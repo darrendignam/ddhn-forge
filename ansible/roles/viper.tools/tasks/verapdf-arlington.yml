@@ -8,6 +8,11 @@
 # Note this comes from software.verapdf.org/dev/ and is versioned by build number, so
 # it pins a development build rather than a release tag.
 
+- name: "veraPDF ARLINGTON | Running Tool Setup."
+  include_tasks: tool.yml
+  vars:
+    item: "{{ viper.tools['verapdf-arlington'] }}"
+
 - name: "veraPDF ARLINGTON | Create installer root."
   file:
     path: "{{ viper.tools['verapdf-arlington'].installer.root }}"
@@ -28,10 +33,18 @@
 - name: "veraPDF ARLINGTON | Run installation script"
   command: "{{ viper.tools['verapdf-arlington'].installer.script }} /tmp/verapdf-arlington-install.xml"
   args:
-    creates: "{{ viper.tools['verapdf-arlington'].dests.lib }}/verapdf"
+    creates: "{{ viper.tools['verapdf-arlington'].dests.lib }}/arlington-pdf-model-checker"
 
+# The Arlington build ships arlington-pdf-model-checker rather than reusing the
+# verapdf name, so the two installs cannot collide on PATH.
 - name: "veraPDF ARLINGTON | Create symlink for CLI shell file."
   file:
-    src: "{{ viper.tools['verapdf-arlington'].dests.lib }}/verapdf"
-    dest: "{{ viper.tools['verapdf-arlington'].dests.bin }}/verapdf-arlington"
+    src: "{{ viper.tools['verapdf-arlington'].dests.lib }}/arlington-pdf-model-checker"
+    dest: "{{ viper.tools['verapdf-arlington'].dests.bin }}/arlington-pdf-model-checker"
+    state: link
+
+- name: "veraPDF ARLINGTON | Create symlink for GUI shell file."
+  file:
+    src: "{{ viper.tools['verapdf-arlington'].dests.lib }}/arlington-pdf-model-checker-gui"
+    dest: "{{ viper.tools['verapdf-arlington'].dests.bin }}/arlington-pdf-model-checker-gui"
     state: link

@@ -11,12 +11,50 @@
     dest: "/tmp/openfixity-{{ openfixity_version }}-amd64.deb"
     mode: '0644'
 
+# The published package is built against the 64-bit time_t transition and declares
+# libasound2t64, which exists in Debian 13 and Ubuntu 24.04 but not in Debian 12.
+# Bookworm ships that same library as libasound2, providing the same libasound.so.2
+# soname, and on amd64 the transition changed nothing because time_t was already 64
+# bit there. Only the bundled JRE's libjsound.so links it at all.
+#
+# So the dependency is rewritten and the package repacked, rather than forced in with
+# --force-depends, which would leave apt believing the system has an unmet dependency.
+#
+# Remove this once OpenFixity publishes a Debian 12 build, or when the appliance moves
+# to a t64 base such as Ubuntu 24.04. It is one of the reasons to make that move.
+- name: "OPENFIXITY | Unpack for dependency rewrite."
+  command: >
+    dpkg-deb -R /tmp/openfixity-{{ openfixity_version }}-amd64.deb
+    /tmp/openfixity-repack
+  args:
+    creates: "/tmp/openfixity-repack/DEBIAN/control"
+  when: ansible_distribution == "Debian" and ansible_distribution_major_version | int <= 12
+
+- name: "OPENFIXITY | Point the dependency at Debian 12's libasound2."
+  replace:
+    path: /tmp/openfixity-repack/DEBIAN/control
+    regexp: 'libasound2t64'
+    replace: 'libasound2'
+  when: ansible_distribution == "Debian" and ansible_distribution_major_version | int <= 12
+
+- name: "OPENFIXITY | Repack."
+  command: >
+    dpkg-deb -b /tmp/openfixity-repack
+    /tmp/openfixity-{{ openfixity_version }}-amd64-bookworm.deb
+  args:
+    creates: "/tmp/openfixity-{{ openfixity_version }}-amd64-bookworm.deb"
+  when: ansible_distribution == "Debian" and ansible_distribution_major_version | int <= 12
+
 - name: "OPENFIXITY | Install the Debian package."
   apt:
-    deb: "/tmp/openfixity-{{ openfixity_version }}-amd64.deb"
+    deb: "/tmp/openfixity-{{ openfixity_version }}-amd64{{ '-bookworm' if (ansible_distribution == 'Debian' and ansible_distribution_major_version | int <= 12) else '' }}.deb"
     state: present
 
-- name: "OPENFIXITY | Remove the downloaded package."
+- name: "OPENFIXITY | Clean up downloaded and repacked files."
   file:
-    path: "/tmp/openfixity-{{ openfixity_version }}-amd64.deb"
+    path: "{{ item }}"
     state: absent
+  loop:
+    - "/tmp/openfixity-{{ openfixity_version }}-amd64.deb"
+    - "/tmp/openfixity-{{ openfixity_version }}-amd64-bookworm.deb"
+    - "/tmp/openfixity-repack"

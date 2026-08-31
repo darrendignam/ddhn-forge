@@ -174,6 +174,12 @@ viper:
         loc: "https://github.com/openpreserve/OpenFixity/releases/download/v{{ openfixity_version }}/OpenFixity-{{ openfixity_version }}-linux-x64.deb"
     verapdf-arlington:
       name: "verapdf-arlington"
+      desktop_name: "Arlington PDF Model Checker"
+      generic_name: "PDF Validation"
+      comment: "Checks PDF files against the Arlington PDF Model. A veraPDF development build."
+      exec: "arlington-pdf-model-checker-gui"
+      # Reuses the veraPDF icon: this is the same project's Arlington build.
+      icon: "verapdf.png"
       version: "{{ verapdf_arlington_version }}"
       source:
         git: "https://github.com/veraPDF/veraPDF-library.git"
