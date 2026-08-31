@@ -52,6 +52,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
+            # major and minor aliases only move for a final release, never an rc
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
@@ -86,24 +87,21 @@ jobs:
           docker commit ${{ steps.container.outputs.container_id }} viper-build:latest
 
       - name: Tag and push to Docker Hub and GHCR
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          # Tag for Docker Hub
-          docker tag viper-build:latest ${{ env.REGISTRY_DOCKERHUB }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY_DOCKERHUB }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-          
-          # Tag for GitHub Container Registry
-          docker tag viper-build:latest ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
-          
-          # If this is a tagged release, also push the version tag
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            # Extract version from v1.2.0 -> 1.2.0
-            VERSION=${GITHUB_REF#refs/tags/v}
-            docker tag viper-build:latest ${{ env.REGISTRY_DOCKERHUB }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${VERSION}
-            docker push ${{ env.REGISTRY_DOCKERHUB }}/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${VERSION}
-            docker tag viper-build:latest ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${VERSION}
-            docker push ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${VERSION}
-          fi
+          set -euo pipefail
+
+          # Tags come from docker/metadata-action rather than being hand-rolled here.
+          # The previous version pushed :latest unconditionally, so tagging a release
+          # candidate made an RC the default pull for everyone. metadata-action knows
+          # not to move :latest for a prerelease.
+          echo "${TAGS}" | while read -r tag; do
+            [ -n "${tag}" ] || continue
+            echo "Pushing ${tag}"
+            docker tag viper-build:latest "${tag}"
+            docker push "${tag}"
+          done
 
       - name: Clean up
         if: always()
