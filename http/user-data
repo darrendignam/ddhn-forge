@@ -1,0 +1,52 @@
+#cloud-config
+# Ubuntu 24.04 LTS autoinstall, replacing the Debian preseed.
+#
+# Ubuntu Server is used rather than the Linux Mint ISO because Mint ships Ubiquity, the
+# live-session installer, which has no supported unattended path. Subiquity autoinstall
+# does, and the MATE desktop plus Mint's theming is applied by Ansible afterwards. The
+# result is the Mint desktop on a base that can be built unattended.
+autoinstall:
+  version: 1
+  interactive-sections: []
+
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  identity:
+    hostname: viper
+    username: vagrant
+    # "vagrant", the throwaway build account. The Packer shutdown command locks it, so
+    # the shipped image has no usable login for it.
+    password: "$6$rounds=4096$c2FsdHNhbHQ$5wTS3.HrPXbHBHOsgB4YnaHYRGZQXO1QsBpqjPTMBLGXBrLxKrfWDSbGdxKlPnkYs1uKOnCbxTLtLzWWJZ2rC/"
+
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  # Deliberately minimal. viper.setup runs a dist-upgrade as its first task, so doing it
+  # here duplicates work inside the installer, where it counts against Packer's
+  # ssh_timeout rather than against the provisioner.
+  packages:
+    - sudo
+    - openssh-server
+    - build-essential
+  updates: security
+
+  storage:
+    layout:
+      name: direct
+
+  timezone: Europe/Berlin
+
+  late-commands:
+    - curtin in-target -- sh -c 'mkdir -p /home/vagrant/.ssh'
+    - curtin in-target -- sh -c 'wget -O /home/vagrant/.ssh/authorized_keys https://raw.githubusercontent.com/hashicorp/vagrant/master/keys/vagrant.pub'
+    - curtin in-target -- sh -c 'chown -R vagrant:vagrant /home/vagrant/.ssh'
+    - curtin in-target -- sh -c 'chmod 700 /home/vagrant/.ssh'
+    - curtin in-target -- sh -c 'chmod 600 /home/vagrant/.ssh/authorized_keys'
+    - curtin in-target -- sh -c 'echo "vagrant ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/vagrant'
+    - curtin in-target -- sh -c 'chmod 440 /etc/sudoers.d/vagrant'
+    # Ubuntu Server enables unattended-upgrades, which grabs the apt lock and makes the
+    # first Ansible task fail intermittently.
+    - curtin in-target -- sh -c 'systemctl disable --now unattended-upgrades || true'

@@ -1,77 +1,76 @@
 ---
-# desktop Environment setup for ViPER tools
-# These tasks are for GNOME desktop (VMs) - Docker containers use XFCE which is pre-configured
+# Desktop environment setup for ViPER.
+#
+# VMs run MATE on Ubuntu 24.04 with Linux Mint's theming. Containers run XFCE, which
+# webtop supplies pre-configured, so the two halves are guarded on virtualization_type.
+#
+# MATE is not GNOME with different names. Three differences matter here:
+#   - the wallpaper key takes a plain path, not a file:// URI
+#   - Caja draws the desktop itself once show-desktop-icons is set, so the Nemo autostart
+#     shim the GNOME build needed is gone
+#   - schema ids and dconf paths diverge, for example org.mate.background lives at
+#     /org/mate/desktop/background/
 
-- name: "Desktop | Create Nemo config directory."
-  file:
-    path: "/home/{{ viper.setup.limited_account.name }}/.config/autostart"
-    state: directory
-    mode: '0755'
-    owner: "{{ viper.setup.limited_account.name }}"
-    group: "{{ viper.setup.limited_account.name }}"
-  when: ansible_virtualization_type != "docker"
-
-- name: "Desktop | Add hidden desktop file for Nemo and icons"
-  copy:
-    src: "files/home/.config/autostart/nemo-autostart-with-gnome.desktop"
-    dest: "/home/{{ viper.setup.limited_account.name }}/.config/autostart/nemo-autostart-with-gnome.desktop"
-  when: ansible_virtualization_type != "docker"
-
-- name: "Desktop | Create user shared backgrounds directory."
+- name: "Desktop | Create shared backgrounds directory."
   file:
     path: "/usr/local/share/backgrounds"
     state: directory
+    mode: '0755'
   when: ansible_virtualization_type != "docker"
 
 - name: "Desktop | Copy ViPER wallpaper to shared backgrounds directory."
   copy:
     src: "files/usr/local/share/backgrounds/viper-desktop.jpg"
     dest: "/usr/local/share/backgrounds/viper-desktop.jpg"
+    mode: '0644'
   when: ansible_virtualization_type != "docker"
 
-- name: "Desktop | Set wallpaper for user."
+- name: "Desktop | Apply MATE desktop settings for the ViPER account."
   become: true
   become_user: "{{ viper.setup.limited_account.name }}"
   community.general.dconf:
-    key: "/org/gnome/desktop/background/picture-uri"
-    value: "'file:///usr/local/share/backgrounds/viper-desktop.jpg'"
+    key: "{{ item.key }}"
+    value: "{{ item.value }}"
     state: present
+  loop:
+    # Wallpaper. Note this is a path, where GNOME took a file:// URI.
+    - { key: "/org/mate/desktop/background/picture-filename",
+        value: "'/usr/local/share/backgrounds/viper-desktop.jpg'" }
+    - { key: "/org/mate/desktop/background/picture-options", value: "'zoom'" }
+    # Caja draws the desktop, which is what puts the tool launchers on it
+    - { key: "/org/mate/desktop/background/show-desktop-icons", value: "true" }
+    - { key: "/org/mate/caja/desktop/volumes-visible", value: "true" }
+    - { key: "/org/mate/caja/desktop/computer-icon-visible", value: "false" }
+    - { key: "/org/mate/caja/desktop/home-icon-visible", value: "true" }
+    - { key: "/org/mate/caja/desktop/trash-icon-visible", value: "true" }
+    # The Mint look
+    - { key: "/org/mate/desktop/interface/gtk-theme", value: "'Mint-Y-Blue'" }
+    - { key: "/org/mate/desktop/interface/icon-theme", value: "'Mint-Y'" }
+    - { key: "/org/mate/marco/general/theme", value: "'Mint-Y'" }
+    # Launching a .desktop file from the desktop should just run it
+    - { key: "/org/mate/caja/preferences/executable-text-activation", value: "'launch'" }
+  loop_control:
+    label: "{{ item.key }}"
   when: ansible_virtualization_type != "docker"
 
-- name: "Desktop | Set dark theme wallpaper for user."
-  become: true
-  become_user: "{{ viper.setup.limited_account.name }}"
-  community.general.dconf:
-    key: "/org/gnome/desktop/background/picture-uri-dark"
-    value: "'file:///usr/local/share/backgrounds/viper-desktop.jpg'"
-    state: present
+# Caja refuses to run a desktop launcher it does not trust, showing "Untrusted application
+# launcher" instead of the tool. The trust flag is per-file user metadata, so it has to be
+# set as the ViPER account, after the .desktop files exist.
+- name: "Desktop | Find the tool launchers on the desktop."
+  find:
+    paths: "/home/{{ viper.setup.limited_account.name }}/Desktop"
+    patterns: "*.desktop"
+  register: viper_desktop_launchers
   when: ansible_virtualization_type != "docker"
 
-- name: "Desktop | Set screensaver wallpaper for user."
+- name: "Desktop | Mark the tool launchers as trusted for Caja."
   become: true
   become_user: "{{ viper.setup.limited_account.name }}"
-  community.general.dconf:
-    key: "/org/gnome/desktop/screensaver/picture-uri"
-    value: "'file:///usr/local/share/backgrounds/viper-desktop.jpg'"
-    state: present
-  when: ansible_virtualization_type != "docker"
-
-- name: "Desktop | Set dark theme screensaver wallpaper for user."
-  become: true
-  become_user: "{{ viper.setup.limited_account.name }}"
-  community.general.dconf:
-    key: "/org/gnome/desktop/screensaver/picture-uri-dark"
-    value: "'file:///usr/local/share/backgrounds/viper-desktop.jpg'"
-    state: present
-  when: ansible_virtualization_type != "docker"
-
-- name: "Desktop | Tell Nemo to show mounted volumes on desktop."
-  become: true
-  become_user: "{{ viper.setup.limited_account.name }}"
-  community.general.dconf:
-    key: "/org/nemo/desktop/volumes-visible"
-    value: "true"
-    state: present
+  command: "gio set {{ item.path }} metadata::caja-trusted-launcher true"
+  loop: "{{ viper_desktop_launchers.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  changed_when: false
   when: ansible_virtualization_type != "docker"
 
 # Docker/XFCE Desktop Configuration

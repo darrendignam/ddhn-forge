@@ -1,0 +1,11 @@
+# LightDM configuration for ViPER.
+#
+# Ubuntu Server ships no display manager, and MATE uses LightDM rather than GDM3. The
+# greeter is Mint's slick-greeter so the login screen matches the desktop, on the rare
+# occasions a user sees it: the account logs in automatically.
+[Seat:*]
+autologin-user={{ viper.setup.limited_account.name }}
+autologin-user-timeout=0
+user-session=mate
+greeter-session=slick-greeter
+allow-guest=false

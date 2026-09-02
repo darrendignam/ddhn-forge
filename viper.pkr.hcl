@@ -76,19 +76,19 @@ variable "ssh_timeout" {
 # trusting it, and keep this note so the next person does not rediscover it.
 variable "iso_url" {
   type    = string
-  default = "https://cdimage.debian.org/cdimage/archive/12.8.0/amd64/iso-cd/debian-12.8.0-amd64-netinst.iso"
+  default = "https://releases.ubuntu.com/24.04/ubuntu-24.04.4-live-server-amd64.iso"
 }
 
 variable "iso_checksum" {
   type    = string
-  default = "sha256:04396d12b0f377958a070c38a923c227832fa3b3e18ddc013936ecf492e9fbb3"
+  default = "sha256:e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433"
 }
 
 locals {
   vm_name = var.vm_name != "" ? var.vm_name : "viper-${var.version}"
 }
 
-source "qemu" "debian-bookworm" {
+source "qemu" "ubuntu-noble" {
   vm_name          = local.vm_name
   iso_url          = var.iso_url
   iso_checksum     = var.iso_checksum
@@ -132,32 +132,27 @@ source "qemu" "debian-bookworm" {
   # vagrant to issue this very command. Order within the line matters.
   shutdown_command = "echo 'vagrant' | sudo -S sh -c 'rm -f /etc/ssh/sshd_config.d/99-packer-build.conf; usermod -L -s /usr/sbin/nologin vagrant; rm -f /etc/sudoers.d/vagrant; sync; shutdown -P now'"
 
-  # Boot command for Debian preseed
+  # Boot command for Ubuntu subiquity autoinstall.
+  #
+  # Unlike the Debian installer there is no kernel command line to append to at the boot
+  # prompt; GRUB has to be driven directly. "c" drops to the GRUB shell, then the kernel
+  # is booted with the autoinstall datasource pointed at Packer's HTTP server. The
+  # trailing slash on the seed URL matters: cloud-init appends user-data and meta-data
+  # to it and 404s without it.
   boot_wait = "5s"
   boot_command = [
-    "<esc><wait>",
-    "auto <wait>",
-    "console-setup/ask_detect=false <wait>",
-    "console-keymaps-at/keymap=us <wait>",
-    "debconf/frontend=noninteractive <wait>",
-    "debian-installer=en_US.UTF-8 <wait>",
-    "fb=false <wait>",
-    "install <wait>",
-    "kbd-chooser/method=us <wait>",
-    "keyboard-configuration/xkb-keymap=us <wait>",
-    "locale=en_US.UTF-8 <wait>",
-    "netcfg/get_hostname=viper <wait>",
-    "netcfg/get_domain=viper.test <wait>",
-    "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg <wait>",
-    "<enter>"
+    "c<wait>",
+    "linux /casper/vmlinuz --- autoinstall ds=\"nocloud-net;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/\"<enter><wait>",
+    "initrd /casper/initrd<enter><wait>",
+    "boot<enter>"
   ]
 
-  # Serve preseed file via HTTP
+  # Serve the autoinstall user-data and meta-data
   http_directory = "http"
 }
 
 build {
-  sources = ["source.qemu.debian-bookworm"]
+  sources = ["source.qemu.ubuntu-noble"]
 
   # The security role turns off password authentication, which is what Packer
   # authenticates with. A drop-in keeps the build's own connections working

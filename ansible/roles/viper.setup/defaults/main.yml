@@ -1,6 +1,12 @@
 ---
 # viper.setup default values
 
+# Linux Mint release whose repository supplies the desktop theming. Mint gives each point
+# release its own dist, so this is a deliberate pin that must be bumped, exactly like the
+# webtop tag on the container side. zena is Mint 22.3, built on Ubuntu 24.04.
+mint_codename: "zena"
+mint_keyring_url: "http://packages.linuxmint.com/pool/main/l/linuxmint-keyring/linuxmint-keyring_2022.06.21_all.deb"
+
 # Default packages for Docker containers (minimal set, for Debian Bookworm)
 viper_env_apt_docker_defaults:
   - "git"
@@ -18,7 +24,7 @@ viper_env_apt_docker_defaults:
   - "firefox-esr"
   - "conky-all"
 
-# Default packages for VMs (includes desktop environment)
+# Default packages for VMs (Ubuntu 24.04 base plus the MATE desktop and Mint theming)
 viper_env_apt_vm_defaults:
   # Source control
   - "git"
@@ -37,9 +43,28 @@ viper_env_apt_vm_defaults:
   - "console-setup"
   # Open JDK 17 for Java
   - "openjdk-17-jre"
-  # GNOME desktop and Nemo add on for icon display
-  - "task-gnome-desktop"
-  - "nemo"
+  # MATE desktop. Ubuntu Server has no desktop, so this is the whole graphical stack.
+  # mate-desktop-environment rather than ubuntu-mate-desktop: the latter pulls Ubuntu
+  # branding and a large recommends set that Mint's theming then has to override.
+  - "mate-desktop-environment"
+  - "mate-screensaver"
+  - "mate-system-monitor"
+  - "caja"
+  - "caja-open-terminal"
+  - "atril"
+  - "eom"
+  - "engrampa"
+  # LightDM with Mint's greeter, which is what a Mint MATE desktop uses. Ubuntu Server
+  # ships no display manager at all.
+  - "lightdm"
+  - "slick-greeter"
+  # NetworkManager applet, or the panel has no network indicator
+  - "network-manager-gnome"
+  # The Mint look: themes, icons and the Mint menu applet
+  - "mint-themes"
+  - "mint-y-icons"
+  - "mint-artwork"
+  - "mintmenu"
   - "locales"
   # GRUB tools for boot configuration
   - "grub-common"

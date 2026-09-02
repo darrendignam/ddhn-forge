@@ -8,6 +8,39 @@
     state: directory
     mode: '0755'
 
+# The Mint desktop packages live in Mint's own repository, not Ubuntu's. Mint 22.x is
+# Ubuntu 24.04 with this repository added, which is exactly what ViPER needs: a base that
+# can be installed unattended, wearing the Mint desktop.
+- name: "MINT | Install the Linux Mint archive keyring."
+  apt:
+    deb: "{{ mint_keyring_url }}"
+  when: ansible_virtualization_type != "docker"
+
+- name: "MINT | Add the Linux Mint repository."
+  apt_repository:
+    repo: "deb http://packages.linuxmint.com {{ mint_codename }} main upstream import backport"
+    filename: "linuxmint"
+    state: present
+    update_cache: true
+  when: ansible_virtualization_type != "docker"
+
+# Mint's repository carries some packages that also exist in Ubuntu. Without pinning,
+# apt is free to prefer Mint's build of a shared library, which is not what we are asking
+# for: we want Ubuntu's base with Mint's desktop on top. Restrict Mint to what it is for.
+- name: "MINT | Pin the Mint repository to desktop and theming packages only."
+  copy:
+    dest: /etc/apt/preferences.d/linuxmint
+    mode: '0644'
+    content: |
+      Package: *
+      Pin: origin packages.linuxmint.com
+      Pin-Priority: 100
+
+      Package: mint-* mintmenu mate-* caja* slick-greeter
+      Pin: origin packages.linuxmint.com
+      Pin-Priority: 700
+  when: ansible_virtualization_type != "docker"
+
 - name: "APT | Install apt package pre-requisites."
   apt:
     name: "{{ viper.setup.prereqs.apt }}"

@@ -70,30 +70,46 @@
     owner: "{{ viper.setup.limited_account.name }}"
     group: "{{ viper.setup.limited_account.name }}"
 
-- name: "USER | Disable GNOME session save/restore to prevent Activities view on login."
-  copy:
-    dest: "{{ viper.setup.limited_account.home }}/.config/autostart/gnome-session-restore-disable.desktop"
-    content: |
-      [Desktop Entry]
-      Type=Application
-      Name=Disable Session Restore
-      Exec=sh -c "dconf write /org/gnome/desktop/session/save-last-session false && dconf write /org/gnome/desktop/wm/preferences/num-workspaces 1 && dconf write /org/gnome/mutter/dynamic-workspaces false"
-      NoDisplay=true
-      X-GNOME-Autostart-enabled=true
-    mode: '0644'
-    owner: "{{ viper.setup.limited_account.name }}"
-    group: "{{ viper.setup.limited_account.name }}"
+# GNOME needed an autostart shim to stop it restoring the previous session and landing
+# the user in the Activities overview. MATE has no overview and does not restore sessions
+# by default, so this is a plain dconf setting rather than a login-time workaround.
+- name: "USER | Keep MATE sessions predictable across reboots."
+  become: true
+  become_user: "{{ viper.setup.limited_account.name }}"
+  community.general.dconf:
+    key: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+  loop:
+    - { key: "/org/mate/session/auto-save-session", value: "false" }
+    - { key: "/org/mate/marco/general/num-workspaces", value: "1" }
+  loop_control:
+    label: "{{ item.key }}"
   when: ansible_virtualization_type != "docker"
-
 - name: "USER | Add execute privileges to the desktop dir."
   file:
     path: "{{ viper.setup.limited_account.home }}/Desktop"
     state: directory
     mode: a+x
 
-- name: "USER | Set up auto login via /etc/gdm3/daemon.conf."
+- name: "USER | Set up auto login via LightDM."
   template:
-    src: "etc/gdm3/daemon.j2"
-    dest: "/etc/gdm3/daemon.conf"
-    owner: "root"
+    src: "etc/lightdm/lightdm.conf.j2"
+    dest: "/etc/lightdm/lightdm.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_virtualization_type != "docker"
+
+- name: "USER | Make MATE the default session for the account."
+  copy:
+    dest: "/var/lib/AccountsService/users/{{ viper.setup.limited_account.name }}"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [User]
+      Session=mate
+      XSession=mate
+      SystemAccount=false
   when: ansible_virtualization_type != "docker"
