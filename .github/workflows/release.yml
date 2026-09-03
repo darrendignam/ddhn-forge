@@ -182,7 +182,21 @@ jobs:
             echo "::error::Expected at least 10 staged launchers, found ${launchers}."
             exit 1
           fi
-          docker run --rm --entrypoint sh viper-build:latest -c 'command -v droid tika rclone jhove verapdf'
+          # One invocation per tool. `command -v` resolves only its FIRST operand and
+          # ignores the rest, so the single call this replaced tested droid and nothing
+          # else: tika, rclone, jhove or verapdf could all have been missing and the
+          # broken image would still have been pushed to Docker Hub and GHCR.
+          missing=''
+          for tool in droid tika rclone jhove verapdf fido jpylyzer; do
+            if ! docker run --rm --entrypoint sh viper-build:latest -c "command -v ${tool}" >/dev/null 2>&1; then
+              missing="${missing} ${tool}"
+            fi
+          done
+          if [ -n "${missing}" ]; then
+            echo "::error::Not on PATH in the committed image:${missing}"
+            exit 1
+          fi
+          echo "all command line tools resolve"
 
       - name: Tag and push to Docker Hub and GHCR
         env:

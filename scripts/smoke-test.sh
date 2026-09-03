@@ -74,16 +74,28 @@ echo "==> Bundled jars match the installed Java runtime"
 # which would make every jar below look incompatible.
 jre_major=$(java -version 2>&1 | sed -n '1s/[^"]*"\([0-9]*\).*/\1/p')
 jre_class=$((jre_major + 44))
+jars_checked=0
+jar_failures=0
 for jar in $(find /usr/local/lib -name '*.jar' 2>/dev/null | grep -vi uninstaller); do
   first_class=$(unzip -l "${jar}" 2>/dev/null | awk '/\.class$/{print $4; exit}')
   [ -n "${first_class}" ] || continue
   jar_class=$(unzip -p "${jar}" "${first_class}" 2>/dev/null | od -An -tu1 -j6 -N2 | awk '{print $2}')
   [ -n "${jar_class}" ] || continue
+  jars_checked=$((jars_checked + 1))
   if [ "${jar_class}" -gt "${jre_class}" ]; then
     fail "$(basename "${jar}"): needs Java $((jar_class - 44)), runtime is Java ${jre_major}"
+    jar_failures=$((jar_failures + 1))
   fi
 done
-[ "${failures}" -eq 0 ] && pass "all jars run on Java ${jre_major}"
+
+# Report on what this check measured, not on the global counter. Reading `failures` here
+# meant an unrelated earlier failure suppressed the message, and an empty loop, which is
+# what a failed tool install looks like, printed a pass having examined nothing.
+if [ "${jars_checked}" -eq 0 ]; then
+  fail "no jars found under /usr/local/lib: the Java tools did not install"
+elif [ "${jar_failures}" -eq 0 ]; then
+  pass "all ${jars_checked} jars run on Java ${jre_major}"
+fi
 
 echo "==> Command line tools"
 check_runs "jhove" /usr/local/bin/jhove -h
