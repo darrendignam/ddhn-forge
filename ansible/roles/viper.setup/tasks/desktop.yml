@@ -55,8 +55,6 @@
     mode: '0644'
   notify: compile the dconf database
 
-# Desktop folder shortcuts. The target is created here so the link is never dangling,
-# and stays root owned: a shared corpus is reference material, not a working directory.
 # Interactive shell. /etc/zsh/zshrc is sourced for every interactive zsh, so this
 # reaches the desktop terminal and any SSH session without touching a user dotfile.
 - name: "Shell | Install the ViPER zsh configuration."
@@ -102,7 +100,7 @@
 - name: "Shell | Install .zshrc for the ViPER account."
   copy:
     src: "files/etc/skel/.zshrc"
-    dest: "/home/{{ viper.setup.limited_account.name }}/.zshrc"
+    dest: "{{ viper.setup.limited_account.home }}/.zshrc"
     owner: "{{ viper.setup.limited_account.name }}"
     group: "{{ viper.setup.limited_account.name }}"
     mode: '0644'
@@ -127,8 +125,6 @@
     group: root
     mode: '0644'
 
-# The terminal takes the account's login shell from /etc/passwd. The VM logs in as the
-# ViPER account, the container's desktop runs as abc, so both need setting.
 # The reference ships with the appliance, so it works with no network. It is the same
 # file as docs/tools/cli.md, copied rather than duplicated so the two cannot drift.
 - name: "Shell | Install the ViPER command line reference."
@@ -147,11 +143,15 @@
     group: root
     mode: '0755'
 
+# The terminal takes the account's login shell from /etc/passwd. The VM logs in as the
+# ViPER account, the container's desktop runs as abc, so both need setting.
 - name: "Shell | Make zsh the login shell."
   user:
     name: "{{ (ansible_virtualization_type == 'docker') | ternary('abc', viper.setup.limited_account.name) }}"
     shell: /usr/bin/zsh
 
+# Desktop folder shortcuts. The target is created here so the link is never dangling,
+# and stays root owned: a shared corpus is reference material, not a working directory.
 - name: "Desktop | Create the target directories for desktop folder shortcuts."
   file:
     path: "{{ item.path }}"
@@ -175,7 +175,7 @@
 - name: "Desktop | Link the shared folders onto the ViPER desktop."
   file:
     src: "{{ item.path }}"
-    dest: "/home/{{ viper.setup.limited_account.name }}/Desktop/{{ item.name }}"
+    dest: "{{ viper.setup.limited_account.home }}/Desktop/{{ item.name }}"
     state: link
     owner: "{{ viper.setup.limited_account.name }}"
     group: "{{ viper.setup.limited_account.name }}"
