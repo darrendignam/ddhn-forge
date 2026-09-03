@@ -1,61 +1,60 @@
 #!/bin/bash
-# Install VirtualBox Guest Additions
-# This script installs the guest additions from Debian repositories
-# Debian 12 Bookworm requires the Fasttrack repository for VirtualBox packages
+# Install guest tooling for both hypervisors the image is used under.
+#
+# The image is built with the Packer QEMU builder but released as an OVA that users
+# import into VirtualBox, so it needs guest drivers for both. Installing both is
+# harmless: each set only activates when its hypervisor is detected.
+#
+# Ubuntu 24.04 carries all of these in its own archive, so unlike the Debian 12 build
+# that preceded this there is no third-party repository to add. virtualbox-guest-* live
+# in multiverse, which an Ubuntu Server install already enables; add-apt-repository is
+# kept below as insurance for an ISO that does not, and is a no-op when it is on.
+#
+# The availability check below deliberately does not pipe into grep. Three VM builds
+# were lost to this:
+#
+#   apt-cache policy pkg | grep -q 'Candidate: [0-9]'
+#
+# grep -q exits on the first match and closes the pipe, apt-cache takes SIGPIPE and
+# exits non-zero, `set -o pipefail` makes that the status of the whole pipeline, and
+# `if !` turns a successful match into the failure branch. It reported "not available"
+# for a package apt could see perfectly well, and the same construct misreports any
+# package at all, including bash.
 
-set -e
+set -euo pipefail
 
-echo "Installing VirtualBox Guest Additions..."
+echo "Installing guest tooling..."
 
-# Write a known-good deb822 sources file with contrib enabled
-sudo tee /etc/apt/sources.list.d/debian.sources > /dev/null << 'EOF'
-Types: deb
-URIs: http://deb.debian.org/debian
-Suites: bookworm bookworm-updates
-Components: main contrib non-free non-free-firmware
+# Use the tool built for it rather than editing sources files by hand.
+sudo add-apt-repository -y multiverse
 
-Types: deb
-URIs: http://deb.debian.org/debian-security
-Suites: bookworm-security
-Components: main contrib non-free non-free-firmware
-EOF
+sudo apt-get update
 
-# Clear any conflicting traditional sources.list
-if [ -f /etc/apt/sources.list ] && [ -s /etc/apt/sources.list ]; then
-    sudo cp /etc/apt/sources.list /etc/apt/sources.list.bak
-    sudo truncate -s 0 /etc/apt/sources.list
+# No pipe, so pipefail has nothing to misreport. See the note at the top of the file.
+guest_x11_policy=$(apt-cache policy virtualbox-guest-x11)
+if [[ ! "${guest_x11_policy}" =~ Candidate:[[:space:]]+[0-9] ]]; then
+    echo "ERROR: virtualbox-guest-x11 has no installation candidate." >&2
+    echo "apt-cache policy said:" >&2
+    echo "${guest_x11_policy}" >&2
+    echo "Apt sources:" >&2
+    grep -rHE '^(Components|deb )' /etc/apt/sources.list /etc/apt/sources.list.d/ >&2 2>/dev/null || true
+    exit 1
 fi
 
-# Add Debian Fasttrack repository (required for VirtualBox packages on Bookworm)
-# Pull the keyring and the CA bundle from the main HTTP repos first: the fasttrack
-# source added below is the first HTTPS apt source on the machine, and apt cannot
-# verify it without ca-certificates. The standard task normally supplies it, but
-# this is the one step that would break if a future preseed change dropped it.
-sudo apt-get update
-sudo apt-get install -y ca-certificates fasttrack-archive-keyring
+# No dkms, headers or toolchain. The vboxguest and vboxsf modules ship in Ubuntu's
+# stock kernel, and neither guest additions package depends on dkms. Installing
+# linux-headers-$(uname -r) also tied the build to a kernel version that only exists
+# in the archive while the pinned ISO is current, so it broke on its own once that
+# point release aged out.
+sudo apt-get install -y --no-install-recommends \
+    virtualbox-guest-utils \
+    virtualbox-guest-x11 \
+    qemu-guest-agent \
+    spice-vdagent
 
-sudo tee /etc/apt/sources.list.d/fasttrack.sources > /dev/null << 'EOF'
-Types: deb
-URIs: https://fasttrack.debian.net/debian-fasttrack
-Suites: bookworm-fasttrack
-Components: main contrib
-EOF
-
-sudo apt-get update
-
-# No dkms, headers or toolchain here. The vboxguest and vboxsf modules ship in
-# Debian's stock kernel, and neither guest additions package depends on dkms:
-#
-#   virtualbox-guest-utils  Depends: adduser, pciutils, libc6, libpam0g, zlib1g
-#   virtualbox-guest-x11    Depends: libnotify-bin, x11-xserver-utils, ...
-#
-# Installing linux-headers-$(uname -r) also tied the build to a kernel version that
-# only exists in the archive for as long as the pinned ISO is current, so it broke
-# on its own once that point release aged out.
-sudo apt-get install -y virtualbox-guest-utils virtualbox-guest-x11
-
-# Enable and start the VirtualBox guest services
+# Enabled, not started. VirtualBox services cannot start under QEMU, where this script
+# is running, and systemd would report the failure as a provisioner error.
 sudo systemctl enable virtualbox-guest-utils
-sudo systemctl start virtualbox-guest-utils || true
+sudo systemctl enable qemu-guest-agent
 
-echo "VirtualBox Guest Additions installed successfully"
+echo "Guest tooling installed successfully"

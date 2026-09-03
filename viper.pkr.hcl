@@ -60,20 +60,17 @@ variable "ssh_timeout" {
   description = "How long to wait for the unattended install to finish and SSH to come up."
 }
 
-# Staying on Debian 12 is deliberate: Trixie dropped libqt5webkit5, which
-# mediaconch-gui needs. Debian 12 is oldstable, so its point releases live under
-# cdimage/archive rather than cdimage/release.
+# Ubuntu 24.04 LTS, not Debian. No Debian release runs the full ViPER tool set:
+# Debian 13 dropped libqt5webkit5, which mediaconch-gui needs, and Debian 12 has no
+# libasound2t64, which OpenFixity needs. Noble carries both.
 #
-# Bumping to the current point release (12.15.0) was tried and reverted. It made
-# the unattended install roughly ten times slower, reproducibly:
+# The desktop is MATE with Linux Mint's theming rather than Ubuntu's own, installed on
+# top of the server image. See ansible/roles/viper.setup/defaults/main.yml.
 #
-#   12.8.0   SSH available after 14m36s
-#   12.15.0  ~330 MB installed after 9 min, ~174 KB/s sustained, timed out at 45m
-#   12.15.0  ~520 MB installed after 9 min, same crawl, abandoned
-#
-# The cause was not identified and is probably mirror side rather than anything in
-# this repository. Worth retrying later, but measure the install rate before
-# trusting it, and keep this note so the next person does not rediscover it.
+# Kept from the Debian era because it will cost someone a day otherwise: when the ISO is
+# bumped, measure the install rate before trusting it. A Debian 12.15.0 bump was reverted
+# after the unattended install slowed roughly tenfold, reproducibly, and timed out at 45m
+# against 14m36s for 12.8.0. The cause was never identified and was probably mirror side.
 variable "iso_url" {
   type    = string
   default = "https://releases.ubuntu.com/24.04/ubuntu-24.04.4-live-server-amd64.iso"

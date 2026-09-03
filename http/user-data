@@ -18,7 +18,7 @@ autoinstall:
     username: vagrant
     # "vagrant", the throwaway build account. The Packer shutdown command locks it, so
     # the shipped image has no usable login for it.
-    password: "$6$rounds=4096$c2FsdHNhbHQ$5wTS3.HrPXbHBHOsgB4YnaHYRGZQXO1QsBpqjPTMBLGXBrLxKrfWDSbGdxKlPnkYs1uKOnCbxTLtLzWWJZ2rC/"
+    password: "$6$rounds=4096$c2FsdHNhbHQ$5Gv/WoRwyAqEPFuGVoFLDBNOwojzrUw.wf0Ny8lvdBGCgYG9GWl.DNfrG3meeFEGuyPM2o.Zti92gXnqDVute0"
 
   ssh:
     install-server: true
@@ -39,14 +39,14 @@ autoinstall:
 
   timezone: Europe/Berlin
 
+  # Every entry is quoted. An unquoted plain scalar containing ": " is parsed by YAML
+  # as a mapping, not a string, and subiquity then rejects the whole file with
+  # "Malformed autoinstall in 'late-commands' section" before it installs anything.
+  # The sudoers line below contains "NOPASSWD: ALL" and hit exactly that.
   late-commands:
-    - curtin in-target -- sh -c 'mkdir -p /home/vagrant/.ssh'
-    - curtin in-target -- sh -c 'wget -O /home/vagrant/.ssh/authorized_keys https://raw.githubusercontent.com/hashicorp/vagrant/master/keys/vagrant.pub'
-    - curtin in-target -- sh -c 'chown -R vagrant:vagrant /home/vagrant/.ssh'
-    - curtin in-target -- sh -c 'chmod 700 /home/vagrant/.ssh'
-    - curtin in-target -- sh -c 'chmod 600 /home/vagrant/.ssh/authorized_keys'
-    - curtin in-target -- sh -c 'echo "vagrant ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/vagrant'
-    - curtin in-target -- sh -c 'chmod 440 /etc/sudoers.d/vagrant'
+    # Packer's shell provisioners call sudo non-interactively.
+    - "curtin in-target -- sh -c 'echo \"vagrant ALL=(ALL) NOPASSWD: ALL\" > /etc/sudoers.d/vagrant'"
+    - "curtin in-target -- sh -c 'chmod 440 /etc/sudoers.d/vagrant'"
     # Ubuntu Server enables unattended-upgrades, which grabs the apt lock and makes the
     # first Ansible task fail intermittently.
-    - curtin in-target -- sh -c 'systemctl disable --now unattended-upgrades || true'
+    - "curtin in-target -- sh -c 'systemctl disable --now unattended-upgrades || true'"
