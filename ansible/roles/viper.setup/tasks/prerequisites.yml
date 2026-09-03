@@ -12,9 +12,33 @@
 # Ubuntu 24.04 with this repository added, which is exactly what ViPER needs: a base that
 # can be installed unattended, wearing the Mint desktop. Both the VM and the container
 # use it, so this is not guarded on virtualization_type.
+- name: "MINT | Download the Linux Mint archive keyring."
+  get_url:
+    url: "{{ mint_keyring_url }}"
+    dest: /tmp/linuxmint-keyring.deb
+    checksum: "sha256:{{ mint_keyring_sha256 }}"
+    mode: '0644'
+
 - name: "MINT | Install the Linux Mint archive keyring."
   apt:
-    deb: "{{ mint_keyring_url }}"
+    deb: /tmp/linuxmint-keyring.deb
+
+- name: "MINT | Read the fingerprint of the installed keyring."
+  command: gpg --show-keys --with-colons /usr/share/keyrings/linuxmint-keyring.gpg
+  register: mint_keyring_check
+  changed_when: false
+
+- name: "MINT | Fail unless the keyring carries Mint's published signing key."
+  assert:
+    that: "mint_keyring_fingerprint in mint_keyring_check.stdout"
+    fail_msg: >-
+      /usr/share/keyrings/linuxmint-keyring.gpg does not contain
+      {{ mint_keyring_fingerprint }}. Refusing to trust the Mint repository.
+
+- name: "MINT | Remove the downloaded keyring package."
+  file:
+    path: /tmp/linuxmint-keyring.deb
+    state: absent
 
 - name: "MINT | Add the Linux Mint repository."
   apt_repository:

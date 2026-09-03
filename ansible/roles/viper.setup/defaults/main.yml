@@ -6,6 +6,15 @@
 # webtop tag on the container side. zena is Mint 22.3, built on Ubuntu 24.04.
 mint_codename: "zena"
 mint_keyring_url: "http://packages.linuxmint.com/pool/main/l/linuxmint-keyring/linuxmint-keyring_2022.06.21_all.deb"
+# packages.linuxmint.com does not answer on https, so the keyring that anchors trust for
+# the whole Mint repository arrives over plain http. Pinning the hash means a substituted
+# package fails the build instead of being installed as root and used to "verify"
+# everything fetched afterwards.
+mint_keyring_sha256: "b71be690c543112ea7b65f43e9bbce9a3f17dd5cc784074858f0824154942a99"
+# Checked after installation, because a pinned hash obtained over the same insecure
+# channel only protects against later tampering. This is Linux Mint's published archive
+# signing key and is independent of how the package reached us.
+mint_keyring_fingerprint: "302F0738F465C1535761F965A6616109451BBBF2"
 
 # Default packages for Docker containers (Ubuntu 24.04 base, MATE desktop).
 # No display manager and no full desktop metapackage: webtop supplies the session, so the
