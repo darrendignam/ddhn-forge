@@ -128,7 +128,12 @@ viper:
       generic_name: "Format Characterisation"
       comment: "A content analysis toolkit from the Apache Foundation."
       exec: "tika-gui"
-      icon: "tika.jpg"
+      # PNG, not the JPEG this used to ship. mintMenu copies an absolute icon path
+      # into its own icon directory and then looks it up by name, and Gtk.IconTheme
+      # only indexes png, svg and xpm, so a jpg silently became a blank placeholder in
+      # the menu while rendering correctly on the desktop. Cropped from the feather in
+      # Tika's own gui jar, so it is higher resolution and has an alpha channel.
+      icon: "tika.png"
       version: "{{ tika_version }}"
       source:
         git: "https://github.com/apache/tika.git"
