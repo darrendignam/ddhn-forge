@@ -4,8 +4,17 @@
     - name: Create a Docker container
       community.docker.docker_container:
         name: docker-viper
-        # image: locked in a version to Debian 12 Bookworkm due to libqt5webkit5 removal in Debian 13 Trixie breaking mediaconch-gui
-        image: linuxserver/webtop:amd64-debian-xfce-9a3339d4-ls122
+        # Pinned deliberately, for two reasons.
+        #
+        # KasmVNC: LinuxServer moved webtop's mainline to Selkies. The sister repo's auth
+        # logic depends on KasmVNC, and ubuntu-xfce-kasm is the only remaining flavour
+        # that still uses it. Every other current tag would break authentication.
+        #
+        # Ubuntu 24.04: MediaConch-GUI needs libqt5webkit5, which Debian 13 dropped, and
+        # OpenFixity needs libasound2t64, which Debian 12 has no concept of. Noble carries
+        # both. The MATE desktop and Mint theming are applied by viper.setup, so this and
+        # the VM run the same roles against the same OS.
+        image: lscr.io/linuxserver/webtop:ubuntu-xfce-kasm-0e6f6e26-ls36
         state: started
         command: sleep infinity
         published_ports:
@@ -18,6 +27,11 @@
           PUID: "1000"  # Set PUID environment variable
           PGID: "1000"  # Set PGID environment variable
           TZ: "Europe/London"  # Set timezone environment variable
+          # Browser tab title and the name shown in the KasmVNC client. The base image
+          # sets this to "Ubuntu XFCE", which is both wrong and confusing once the
+          # desktop is MATE. docker commit carries container env into the published
+          # image config, so setting it here is enough; it does not need a --change.
+          TITLE: "ViPER"
 
     - name: Add container to inventory
       add_host:

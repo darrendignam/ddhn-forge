@@ -1,17 +1,22 @@
 #!/bin/bash
-# Post-install script for ViPER Docker container
-# This script runs on user login to configure desktop icons and permissions
+# Runtime desktop configuration for the ViPER container.
+#
+# Desktop appearance comes from the system-wide dconf database baked into the image. This
+# script only handles what cannot be done at build time, because /config is a volume mount
+# and is replaced when the container starts:
+#   - populating /config/Desktop with the tool launchers
+#   - marking those launchers trusted, which is per-file user metadata
+#   - the Conky config and process
 
 LOG_FILE="/config/viper-post-install.log"
 DESKTOP_DIR="/config/Desktop"
 MARKER_FILE="/config/.viper-desktop-configured"
+SOURCE_DESKTOP_DIR="/usr/local/share/viper/desktop"
 
-echo "$(date): Starting ViPER desktop configuration" >> "$LOG_FILE"
+log() { echo "$(date): $*" >> "$LOG_FILE"; }
 
-# Detect if running as root or abc user (define function early for Conky startup)
 CURRENT_USER=$(whoami)
 
-# Function to run command as abc user
 run_as_abc() {
   if [[ "$CURRENT_USER" == "root" ]]; then
     runuser -u abc -- bash -c "$1"
@@ -20,123 +25,120 @@ run_as_abc() {
   fi
 }
 
-# Always start Conky if config exists (even if already configured)
-if [[ -f /config/.conkyrc ]]; then
-  echo "$(date): Starting Conky system monitor" >> "$LOG_FILE"
-  run_as_abc 'export DISPLAY=:1 && pkill conky; sleep 1; conky -c /config/.conkyrc > /dev/null 2>&1 &' >> "$LOG_FILE" 2>&1
-fi
-
-# Exit if already configured
-if [[ -f "$MARKER_FILE" ]]; then
-  echo "$(date): Desktop already configured, skipping" >> "$LOG_FILE"
+# mate-session restarts an autostart entry whose process misbehaves, and an earlier
+# version of this script quit Caja at the end, which retriggered it in a tight loop:
+# 49 concurrent copies and 14 stray conky processes on one boot. The Caja restart is
+# gone, and this lock makes a second instance impossible regardless.
+exec 9>/config/.viper-post-install.lock
+if ! flock -n 9; then
+  log "Another instance holds the lock, exiting"
   exit 0
 fi
 
-echo "$(date): Script running as user: $CURRENT_USER" >> "$LOG_FILE"
+log "Starting ViPER desktop configuration as $CURRENT_USER"
 
-# Wait for desktop to be fully loaded
-echo "$(date): Waiting for desktop environment to be ready" >> "$LOG_FILE"
-for i in {1..30}; do
-  if pgrep -x xfdesktop > /dev/null && pgrep -x xfwm4 > /dev/null; then
-    echo "$(date): Desktop environment is ready" >> "$LOG_FILE"
+# toggle-conky.sh owns the whole job: it resolves the screen geometry, the network
+# interface and the working volume, fills in every placeholder in the template and
+# starts conky. Doing any of that here as well means two implementations that drift,
+# and they did: this used to substitute only the interface, which left __CPUGRAPH__,
+# __WORKDIR__ and the rest showing as literal text in the panel.
+start_conky() {
+  [[ -x /usr/local/bin/toggle-conky.sh ]] || return 0
+  log "Starting Conky system monitor"
+  run_as_abc 'export DISPLAY=:1; pkill -x conky; sleep 1; /usr/local/bin/toggle-conky.sh' >> "$LOG_FILE" 2>&1
+}
+
+# zsh opens a blocking zsh-newuser-install menu the first time a terminal starts if the
+# account has no .zshrc. /config is a volume, so the file cannot be baked into the image
+# and has to be placed here, on every start rather than once: a user who deletes it
+# should not be dropped back into the setup menu.
+if [[ -f /usr/local/share/viper/zshrc && ! -f /config/.zshrc ]]; then
+  cp /usr/local/share/viper/zshrc /config/.zshrc
+  chown abc:abc /config/.zshrc
+  chmod 644 /config/.zshrc
+  log "Installed default .zshrc"
+fi
+
+# Seed the shell history so the grey autosuggestions work on a first run. viper.zsh does
+# this too, but only for a shell whose HOME already has no history; doing it here means
+# it is present before the first terminal ever opens.
+if [[ -f /usr/local/share/viper/viper-history && ! -f /config/.zsh_history ]]; then
+  cp /usr/local/share/viper/viper-history /config/.zsh_history
+  chown abc:abc /config/.zsh_history
+  chmod 600 /config/.zsh_history
+  log "Seeded zsh history"
+fi
+
+if [[ -f "$MARKER_FILE" ]]; then
+  log "Desktop already configured, starting Conky only"
+  start_conky
+  exit 0
+fi
+
+# Caja draws the desktop, so there is nothing to populate until it is running.
+log "Waiting for the MATE session"
+for _ in {1..30}; do
+  if pgrep -x caja > /dev/null && pgrep -x marco > /dev/null; then
+    log "MATE session is ready"
     break
   fi
   sleep 1
 done
 
-# Give it a few more seconds to stabilize
-sleep 5
-
-# Set ownership of gvfs metadata
-chown -R abc:abc /config/.local/share/gvfs-metadata/ 2>/dev/null
-
-# Ensure Desktop directory exists and has correct ownership
 mkdir -p "$DESKTOP_DIR"
-chown abc:abc "$DESKTOP_DIR"
 chmod 755 "$DESKTOP_DIR"
 
-# Copy desktop files from /home/viper/Desktop to /config/Desktop
-echo "$(date): Copying desktop files" >> "$LOG_FILE"
-if [[ -d /home/viper/Desktop ]]; then
-  cp -v /home/viper/Desktop/*.desktop "$DESKTOP_DIR/" 2>&1 >> "$LOG_FILE"
-  chown abc:abc "$DESKTOP_DIR"/*.desktop
+if [[ -r "$SOURCE_DESKTOP_DIR" ]]; then
+  log "Copying tool launchers from $SOURCE_DESKTOP_DIR"
+  cp -v "$SOURCE_DESKTOP_DIR"/*.desktop "$DESKTOP_DIR/" >> "$LOG_FILE" 2>&1
   chmod 755 "$DESKTOP_DIR"/*.desktop
+else
+  # Distinguish the two failure modes: an absent staging directory means the build
+  # skipped desktop-staging.yml, an unreadable one means a permissions regression.
+  if [[ -e "$SOURCE_DESKTOP_DIR" ]]; then
+    log "ERROR: $SOURCE_DESKTOP_DIR exists but is not readable by $CURRENT_USER"
+  else
+    log "ERROR: $SOURCE_DESKTOP_DIR is missing, the desktop will have no tool icons"
+  fi
 fi
 
-# Copy Conky config from system location to user config (if it exists)
-echo "$(date): Copying Conky configuration" >> "$LOG_FILE"
+# Caja shows "Untrusted application launcher" instead of running a .desktop file unless
+# this metadata flag is set. It is per-file and per-user, so it cannot be baked in.
+log "Marking launchers as trusted for Caja"
+for file in "$DESKTOP_DIR"/*.desktop; do
+  [[ -f "$file" ]] || continue
+  run_as_abc "gio set '$file' metadata::caja-trusted-launcher true" >> "$LOG_FILE" 2>&1
+done
+
+# Folder shortcuts. A symlink to a directory is what Caja needs; unlike a .desktop
+# launcher it opens on double click with no trust flag and accepts dropped files.
+FOLDER_LIST=/usr/local/share/viper/desktop-folders.conf
+if [[ -f "$FOLDER_LIST" ]]; then
+  while IFS=$'\t' read -r name target; do
+    [[ -z "${name}" || "${name}" == \#* ]] && continue
+    [[ -d "$target" ]] || { log "WARNING: shortcut target $target is missing, skipping"; continue; }
+    ln -sfn "$target" "$DESKTOP_DIR/$name"
+    chown -h abc:abc "$DESKTOP_DIR/$name"
+    log "Linked $name to $target"
+  done < "$FOLDER_LIST"
+fi
+
 if [[ -f /usr/local/share/conky/conky.conf ]]; then
-  cp -v /usr/local/share/conky/conky.conf /config/.conkyrc 2>&1 >> "$LOG_FILE"
-  chown abc:abc /config/.conkyrc
-  chmod 644 /config/.conkyrc
+  # Nothing to do here. The config is generated by toggle-conky.sh at start_conky time,
+  # from the template in /usr/local/share/conky, so that the geometry matches the
+  # display the session actually came up at.
+  log "Conky template present, config is generated at start"
 fi
 
-# Create XFCE config directories
-mkdir -p /config/.config/xfce4/xfconf/xfce-perchannel-xml
-chown -R abc:abc /config/.config/xfce4
+log "Setting Firefox as the default browser"
+for mime in x-scheme-handler/http x-scheme-handler/https text/html; do
+  run_as_abc "export DISPLAY=:1; xdg-mime default firefox.desktop $mime" >> "$LOG_FILE" 2>&1
+done
 
-# Configure single workspace using xfconf-query
-echo "$(date): Configuring single workspace" >> "$LOG_FILE"
-run_as_abc 'export DISPLAY=:1 && xfconf-query -c xfwm4 -p /general/workspace_count -s 1' >> "$LOG_FILE" 2>&1
+# No Caja restart here. Caja watches the desktop directory with a file monitor and
+# picks up new launchers on its own, and quitting it made mate-session relaunch this
+# script in a loop.
+start_conky
 
-# Wait for X server and desktop to be ready
-sleep 10
-
-echo "$(date): Configuring desktop as abc user" >> "$LOG_FILE"
-
-# Hide desktop icons (Home, Filesystem, Trash)
-# Run as abc user with proper environment
-echo "$(date): Hiding desktop icons" >> "$LOG_FILE"
-run_as_abc 'export DISPLAY=:1 && xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-home -n -t bool -s false' >> "$LOG_FILE" 2>&1
-run_as_abc 'export DISPLAY=:1 && xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-filesystem -n -t bool -s false' >> "$LOG_FILE" 2>&1
-run_as_abc 'export DISPLAY=:1 && xfconf-query -c xfce4-desktop -p /desktop-icons/file-icons/show-trash -n -t bool -s false' >> "$LOG_FILE" 2>&1
-
-# Set desktop wallpaper
-echo "$(date): Setting desktop wallpaper" >> "$LOG_FILE"
-run_as_abc 'export DISPLAY=:1 && xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVNC-0/workspace0/last-image -s /usr/local/share/backgrounds/viper-desktop.jpg' >> "$LOG_FILE" 2>&1
-run_as_abc 'export DISPLAY=:1 && xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitorVNC-0/workspace0/image-style -s 5' >> "$LOG_FILE" 2>&1
-
-# Configure XFCE panel - add system monitor plugins
-echo "$(date): Configuring XFCE panel plugins" >> "$LOG_FILE"
-
-# Note: Panel plugin configuration is complex and may not persist properly
-# The plugins are installed but need manual addition to the panel
-# Users can right-click the panel > Panel > Add New Items > Choose system monitors
-
-# Set Firefox as default web browser using xdg-mime
-run_as_abc 'export DISPLAY=:1 && xdg-mime default firefox-esr.desktop x-scheme-handler/http' >> "$LOG_FILE" 2>&1
-run_as_abc 'export DISPLAY=:1 && xdg-mime default firefox-esr.desktop x-scheme-handler/https' >> "$LOG_FILE" 2>&1
-run_as_abc 'export DISPLAY=:1 && xdg-mime default firefox-esr.desktop text/html' >> "$LOG_FILE" 2>&1
-
-# Reload desktop settings by restarting desktop manager and window manager
-echo "$(date): Reloading desktop settings" >> "$LOG_FILE"
-# Restart xfdesktop to apply wallpaper and icon changes
-run_as_abc 'export DISPLAY=:1 && pkill xfdesktop && sleep 1 && xfdesktop > /dev/null 2>&1 &' >> "$LOG_FILE" 2>&1
-# Restart window manager to apply workspace changes
-sleep 1
-run_as_abc 'export DISPLAY=:1 && xfwm4 --replace' >> "$LOG_FILE" 2>&1 &
-
-echo "$(date): Desktop configuration completed and applied" >> "$LOG_FILE"
-
-# Make all desktop files executable and trusted
-if [[ -d "$DESKTOP_DIR" ]]; then
-  for file in "$DESKTOP_DIR"/*.desktop; do
-    if [[ -f "$file" ]]; then
-      # Set correct ownership and permissions
-      chown abc:abc "$file"
-      chmod 755 "$file"
-      
-      # Generate checksum for XFCE
-      checksum=$(sha256sum "$file" | awk '{print $1}')
-      
-      echo "$(date): Processing $file with checksum: $checksum" >> "$LOG_FILE"
-      
-      # Set the metadata to mark as trusted
-      gio set -t string "$file" metadata::xfce-exe-checksum "$checksum" 2>&1 | tee -a "$LOG_FILE"
-    fi
-  done
-fi
-
-# Create marker file to prevent re-running
 touch "$MARKER_FILE"
-echo "$(date): ViPER desktop configuration completed" >> "$LOG_FILE"
+log "ViPER desktop configuration completed"
