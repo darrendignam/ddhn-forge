@@ -29,7 +29,10 @@ check_runs() {
     fail "${label}: command not found"
     return
   fi
-  if printf '%s' "${output}" | grep -qE 'Unable to access jarfile|ClassNotFoundException|NoClassDefFoundError|No such file or directory'; then
+  # Bash regex rather than a pipe into grep -q. Under `set -o pipefail` the producer
+  # can be killed by SIGPIPE when grep exits early, which makes the pipeline report
+  # failure on a successful match. Here that would silently pass a broken tool.
+  if [[ "${output}" =~ (Unable\ to\ access\ jarfile|ClassNotFoundException|NoClassDefFoundError|No\ such\ file\ or\ directory) ]]; then
     fail "${label}: launcher ran but could not load its application"
     printf '%s\n' "${output}" | head -5 | sed 's/^/          /'
     return
@@ -62,6 +65,26 @@ check_exists() {
 echo "==> Java runtime"
 check_runs "java" java -version
 
+# DROID 6.9.13 ships jars built for Java 21. On a Java 17 runtime every one of them
+# died with UnsupportedClassVersionError, and because the GUI checks below only test
+# that a launcher resolves, both droid and droid-gui shipped broken and unnoticed.
+# Comparing class file versions catches that without launching a Swing application.
+echo "==> Bundled jars match the installed Java runtime"
+# [^"]* not .* : a greedy match runs past the closing quote and yields an empty version,
+# which would make every jar below look incompatible.
+jre_major=$(java -version 2>&1 | sed -n '1s/[^"]*"\([0-9]*\).*/\1/p')
+jre_class=$((jre_major + 44))
+for jar in $(find /usr/local/lib -name '*.jar' 2>/dev/null | grep -vi uninstaller); do
+  first_class=$(unzip -l "${jar}" 2>/dev/null | awk '/\.class$/{print $4; exit}')
+  [ -n "${first_class}" ] || continue
+  jar_class=$(unzip -p "${jar}" "${first_class}" 2>/dev/null | od -An -tu1 -j6 -N2 | awk '{print $2}')
+  [ -n "${jar_class}" ] || continue
+  if [ "${jar_class}" -gt "${jre_class}" ]; then
+    fail "$(basename "${jar}"): needs Java $((jar_class - 44)), runtime is Java ${jre_major}"
+  fi
+done
+[ "${failures}" -eq 0 ] && pass "all jars run on Java ${jre_major}"
+
 echo "==> Command line tools"
 check_runs "jhove" /usr/local/bin/jhove -h
 check_runs "verapdf" /usr/local/bin/verapdf --version
@@ -76,7 +99,7 @@ echo "==> Desktop entries"
 for tool in jhove droid tika verapdf; do
   check_exists "${tool}.desktop" "/usr/share/applications/${tool}.desktop"
 done
-for tool in org.gnome.Evince gimp org.inkscape.Inkscape mediainfo-gui mediaconch-gui fr.handbrake.ghb; do
+for tool in atril gimp org.inkscape.Inkscape mediainfo-gui mediaconch-gui fr.handbrake.ghb; do
   check_exists "${tool}.desktop" "/usr/share/applications/${tool}.desktop"
 done
 
@@ -84,7 +107,7 @@ echo "==> Tool manifest"
 check_exists "manifest" /usr/local/share/viper/manifest.json
 
 # The viper account is the only way to root on the shipped appliance: the build
-# account is locked during cleanup and root has no password. That rests on Debian
+# account is locked during cleanup and root has no password. That rests on Ubuntu
 # shipping nullok in common-auth, so prove it here rather than discover it after
 # the image is published. -k clears any cached credentials so the password path is
 # genuinely exercised.
