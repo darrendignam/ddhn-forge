@@ -6,3 +6,9 @@
 # part way through a build.
 collections:
   - name: community.general
+  # docker-viper.yml uses community.docker.docker_container and inventory.docker.yml
+  # uses the community.docker.docker_containers inventory plugin. Leaving it out meant
+  # anyone following PACKER_BUILD.md could not run the container build, and the release
+  # workflow papered over it with a separate hardcoded install, which is the drift this
+  # file exists to remove.
+  - name: community.docker

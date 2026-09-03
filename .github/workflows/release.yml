@@ -150,7 +150,7 @@ jobs:
           pip3 install ansible docker requests
 
       - name: Install Ansible collections
-        run: ansible-galaxy collection install community.docker
+        run: ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Build container with Ansible provisioning
         run: |
