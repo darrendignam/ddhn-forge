@@ -54,7 +54,32 @@ done
 sudo rm -f /etc/ssh/ssh_host_*
 
 log "Disabling sshd for the shipped appliance"
-sudo systemctl disable ssh
+# ssh.socket, not just ssh. Ubuntu 24.04 socket-activates sshd: the openssh-server
+# postinst runs "systemctl disable --now ssh.service" and "systemctl enable
+# ssh.socket", so disabling ssh.service disables something already disabled and
+# returns 0 while the socket keeps listening on 0.0.0.0:22. A booted v1.4.0 image
+# was confirmed accepting remote logins with this line as it stood.
+#
+# No --now: these connections are how Packer is talking to the machine right now.
+# disable takes effect at next boot, which is the only boot that matters.
+sudo systemctl disable ssh.socket ssh.service 2>/dev/null || true
+
+# Staged rather than activated, because sshd re-reads its configuration for every
+# new connection and Packer authenticates with a password. shutdown_command moves
+# this into place as the machine is sealed, after the last thing that needs SSH.
+#
+# A drop-in named 00- because sshd takes the FIRST value it finds for a keyword and
+# the Include sits at the top of sshd_config. That is why the role's edits to the
+# main file lost to cloud-init's 50-cloud-init.conf, and why 99-packer-build.conf
+# never did anything either.
+sudo tee /etc/ssh/sshd_config.d/00-viper-hardening.conf.disabled >/dev/null <<'SSHCONF'
+# ViPER: sshd ships disabled. If you enable it, these are the defaults you get.
+PermitRootLogin no
+PasswordAuthentication no
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+AddressFamily inet
+SSHCONF
 
 log "Clearing machine identity"
 sudo truncate -s 0 /etc/machine-id
@@ -72,6 +97,17 @@ sudo fstrim -av || echo "    fstrim unavailable, image will be larger than neces
 
 # Prove it rather than assume it. A published appliance carrying someone's public key
 # is the kind of thing nobody notices until it is downloaded a few hundred times.
+log "Verifying sshd will not start on the shipped appliance"
+for unit in ssh.socket ssh.service; do
+  state=$(systemctl is-enabled "${unit}" 2>/dev/null || true)
+  case "${state}" in
+    enabled|enabled-runtime)
+      echo "ERROR: ${unit} is ${state}; the appliance would ship with SSH reachable" >&2
+      exit 1 ;;
+    *) log "  ${unit}: ${state:-not present}" ;;
+  esac
+done
+
 log "Verifying no SSH keys or authorized_keys survive"
 leftover=$(sudo find /root /home /etc/skel \
   \( -name 'authorized_keys' -o -name 'id_rsa*' -o -name 'id_ecdsa*' \

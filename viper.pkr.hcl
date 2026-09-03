@@ -127,7 +127,14 @@ source "qemu" "ubuntu-noble" {
   # Everything that would cut off our own access happens here, at the last possible
   # moment: cleanup.sh still needs sudo, and Packer still needs to authenticate as
   # vagrant to issue this very command. Order within the line matters.
-  shutdown_command = "echo 'vagrant' | sudo -S sh -c 'rm -f /etc/ssh/sshd_config.d/99-packer-build.conf; usermod -L -s /usr/sbin/nologin vagrant; rm -f /etc/sudoers.d/vagrant; sync; shutdown -P now'"
+  # Seals the machine. This is the last thing that needs SSH, so it is where the SSH
+  # hardening is activated: sshd re-reads its configuration for every new connection and
+  # Packer authenticates with a password, so cleanup.sh can only stage the drop-in.
+  #
+  # 50-cloud-init.conf goes too. It carries "PasswordAuthentication yes" and, because
+  # sshd takes the first value it finds and the Include is at the top of sshd_config, it
+  # silently overrode the hardening for the life of the appliance.
+  shutdown_command = "echo 'vagrant' | sudo -S sh -c 'rm -f /etc/ssh/sshd_config.d/99-packer-build.conf /etc/ssh/sshd_config.d/50-cloud-init.conf; mv -f /etc/ssh/sshd_config.d/00-viper-hardening.conf.disabled /etc/ssh/sshd_config.d/00-viper-hardening.conf; usermod -L -s /usr/sbin/nologin vagrant; rm -f /etc/sudoers.d/vagrant; sync; shutdown -P now'"
 
   # Boot command for Ubuntu subiquity autoinstall.
   #

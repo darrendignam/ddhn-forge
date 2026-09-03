@@ -1,27 +1,19 @@
 ---
 # Main task entry point for viper.setup
 
-- name: "SSH | Disallow root login."
-  replace:
-    path: /etc/ssh/sshd_config
-    regexp: '^PermitRootLogin yes$'
-    replace: 'PermitRootLogin no'
-    backup: yes
-  notify: restart ssh
-
-- name: "SSH | Disallow password authentication."
-  replace:
-    path: /etc/ssh/sshd_config
-    regexp: '^#PasswordAuthentication yes$'
-    replace: 'PasswordAuthentication no'
-  notify: restart ssh
-
-- name: "SSH | Disable IPv6 access."
-  replace:
-    path: /etc/ssh/sshd_config
-    regexp: '^#AddressFamily any$'
-    replace: 'AddressFamily inet'
-  notify: restart ssh
+# The SSH hardening used to live here as three `replace` tasks against sshd_config, and
+# two of the three did nothing on Ubuntu 24.04:
+#
+#   PermitRootLogin        the regexp '^PermitRootLogin yes$' never matched noble's
+#                          '#PermitRootLogin prohibit-password', so it was a silent no-op
+#   PasswordAuthentication the edit landed, but sshd takes the FIRST value it finds for a
+#                          keyword and the Include sits above it, so cloud-init's
+#                          50-cloud-init.conf won with 'PasswordAuthentication yes'
+#
+# A booted v1.4.0 image was confirmed listening on 0.0.0.0:22 and accepting logins. The
+# hardening is now a 00- drop-in, staged by cleanup.sh and activated by the Packer
+# shutdown_command, because doing it here would cut off Packer's own password
+# authenticated connection part way through the build.
 
 - name: "SSH | Install first boot host key generation unit."
   copy:

@@ -29,9 +29,14 @@
 # operator having an RSA keypair, which was documented nowhere and failed the build
 # outright when they did not.
 #
-# A published appliance has no business carrying anyone's key, and sshd is disabled in
-# cleanup.sh regardless, so the key granted nothing. Removed rather than made optional:
-# anyone wanting SSH into a development build can add a key to the running machine.
+# A published appliance has no business carrying anyone's key. Removed rather than made
+# optional: anyone wanting SSH into a development build can add a key to the running
+# machine.
+#
+# An earlier version of this comment said the key granted nothing because sshd was
+# disabled. That was wrong. cleanup.sh disabled ssh.service while Ubuntu 24.04
+# socket-activates sshd through ssh.socket, so the shipped v1.4.0 image was listening on
+# 0.0.0.0:22 and accepting logins. Both units are disabled now.
 
 - name: "USER | Create user desktop dir."
   file:
