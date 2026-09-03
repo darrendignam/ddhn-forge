@@ -1,0 +1,35 @@
+---
+# Mark the tool launchers as trusted for Caja.
+#
+# This has to run after viper.tools has written every launcher, which is why it lives
+# here and not with the rest of the desktop configuration in viper.setup: that role runs
+# first, so the same tasks there scanned an empty directory and marked nothing.
+#
+# Caja currently renders these correctly without the flag, because they are owned by the
+# account and carry the executable bit. That is a Caja implementation detail rather than
+# a guarantee, and the cost of setting the flag properly is one task.
+#
+# The container has no equivalent here: its desktop lives on the /config volume, which is
+# replaced at run time, so post-install.sh does the marking on first start instead.
+
+- name: "DESKTOP TRUST | Find the tool launchers on the desktop."
+  find:
+    paths: "/home/{{ viper_account_name }}/Desktop"
+    patterns: "*.desktop"
+  register: viper_desktop_launchers
+
+- name: "DESKTOP TRUST | Fail if no launchers were found."
+  assert:
+    that: "viper_desktop_launchers.files | length > 0"
+    fail_msg: >-
+      No .desktop launchers found in /home/{{ viper_account_name }}/Desktop.
+      Either the tool tasks did not run or this is running too early again.
+
+- name: "DESKTOP TRUST | Mark the tool launchers as trusted for Caja."
+  become: true
+  become_user: "{{ viper_account_name }}"
+  command: "gio set {{ item.path }} metadata::caja-trusted-launcher true"
+  loop: "{{ viper_desktop_launchers.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  changed_when: false

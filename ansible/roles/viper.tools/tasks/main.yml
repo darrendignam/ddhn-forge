@@ -44,3 +44,8 @@
 - name: "ViPER TOOLS | Stage desktop launchers for the container."
   import_tasks: desktop-staging.yml
   when: ansible_virtualization_type == "docker"
+
+# Also after every launcher exists. viper.setup runs before this role, so it cannot do it.
+- name: "ViPER TOOLS | Mark the desktop launchers as trusted."
+  import_tasks: desktop-trust.yml
+  when: ansible_virtualization_type != "docker"
