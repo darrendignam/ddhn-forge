@@ -405,7 +405,11 @@ jobs:
 
   release:
     name: Create GitHub release
-    needs: [meta, container, publish-qcow2, publish-ova]
+    # vm-build is listed because the release body reads needs.vm-build.outputs.*
+    # for the filenames and checksums. The needs context contains only jobs named
+    # here, so without it every download URL and both checksum blocks render empty.
+    # A branch dispatch cannot catch this: the job is gated on ref_type == 'tag'.
+    needs: [meta, container, vm-build, publish-qcow2, publish-ova]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
