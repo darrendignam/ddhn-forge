@@ -70,6 +70,11 @@ def collateral(package, container):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", action="store_true", help="check this machine, not a container")
+    parser.add_argument(
+        "--no-image",
+        action="store_true",
+        help="run only the checks that need no built image, for pull requests",
+    )
     parser.add_argument("--container", default="docker-viper")
     parser.add_argument("--list", default="viper_env_apt_vm_remove")
     args = parser.parse_args()
@@ -83,6 +88,14 @@ def main():
     )
 
     problems = check_collisions(defaults)
+
+    if args.no_image:
+        print("SKIP  removal cascades, which need a built image to resolve")
+        print()
+        if problems:
+            print(f"{problems} problem(s) in the package lists.")
+            return 1
+        return 0
     checked = 0
 
     for package in sorted(remove_list):

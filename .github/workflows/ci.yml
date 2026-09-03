@@ -57,6 +57,17 @@ jobs:
       - name: shellcheck
         run: shellcheck scripts/*.sh
 
+      # Each of these was written after a failure it would have caught in seconds,
+      # and until now nothing ran them: they only ever fired when someone ran them
+      # by hand. These three need no built image, so they belong on every pull
+      # request. The checks that need an image run in the release workflow.
+      - name: Repository guards
+        run: |
+          set -euo pipefail
+          /tmp/lint/bin/python3 scripts/tests/validate-autoinstall.py
+          /tmp/lint/bin/python3 scripts/tests/validate-package-lists.py --no-image
+          /tmp/lint/bin/python3 scripts/tests/validate-doc-versions.py --no-image
+
       - name: Install Packer
         run: |
           set -euo pipefail
