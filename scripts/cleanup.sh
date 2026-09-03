@@ -24,7 +24,7 @@ log "Removing tool source trees"
 sudo rm -rf /usr/local/src/*
 
 log "Purging Java documentation and sources"
-sudo apt-get purge -y openjdk-17-doc openjdk-17-source
+sudo apt-get purge -y openjdk-21-doc openjdk-21-source
 
 log "Removing orphaned packages and apt caches"
 sudo apt-get autoremove --purge -y

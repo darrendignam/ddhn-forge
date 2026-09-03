@@ -72,5 +72,7 @@ exec "$JAVACMD" $JAVA_OPTS  \
   -Dapp.home="$BASEDIR" \
   -Dbasedir="$BASEDIR" \
   -jar "{{ viper.tools.tika.dests.lib }}/tika-app-{{ viper.tools.tika.version }}.jar" \
+{% if tika_gui | default(false) %}
   --gui \
+{% endif %}
   "$@"

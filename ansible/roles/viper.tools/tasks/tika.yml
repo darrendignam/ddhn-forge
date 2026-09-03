@@ -11,14 +11,29 @@
     url: "{{ viper.tools.tika.installer.loc }}"
     dest: "{{ viper.tools.tika.dests.lib }}/tika-app-{{ tika_version }}.jar"
 
-- name: "TIKA | Copy the tika shell file."
+# Two wrappers from one template. The jar is both the GUI and the CLI; only the --gui
+# flag differs, and without a CLI entry point "tika" is simply not a command on an
+# appliance whose whole point is running these tools from a terminal.
+- name: "TIKA | Copy the tika shell files."
   template:
     src: "usr/local/lib/tika/tika.sh"
-    dest: "{{ viper.tools.tika.dests.lib }}/tika.sh"
+    dest: "{{ viper.tools.tika.dests.lib }}/{{ item.file }}"
     mode: a+x
+  vars:
+    tika_gui: "{{ item.gui }}"
+  loop:
+    - { file: "tika.sh", gui: true }
+    - { file: "tika-cli.sh", gui: false }
+  loop_control:
+    label: "{{ item.file }}"
 
-- name: "TIKA | Create symlink for shell file."
+- name: "TIKA | Create symlinks for shell files."
   file:
-    src: "{{ viper.tools.tika.dests.lib }}/tika.sh"
-    dest: "{{ viper.tools.tika.dests.bin }}/tika-gui"
+    src: "{{ viper.tools.tika.dests.lib }}/{{ item.src }}"
+    dest: "{{ viper.tools.tika.dests.bin }}/{{ item.dest }}"
     state: link
+  loop:
+    - { src: "tika.sh", dest: "tika-gui" }
+    - { src: "tika-cli.sh", dest: "tika" }
+  loop_control:
+    label: "{{ item.dest }}"

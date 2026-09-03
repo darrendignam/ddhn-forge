@@ -1,0 +1,40 @@
+---
+# rclone, the transfer and sync client for cloud storage.
+#
+# One binary covers OneDrive, Google Drive, S3, Dropbox, Box, SFTP, WebDAV and around
+# seventy other backends, which is why it is here rather than a separate client per
+# provider.
+#
+# Installed from the upstream .deb, not apt. Ubuntu 24.04 carries 1.60.1 from 2022, and
+# provider OAuth flows move often enough that a client that old is a liability for the
+# exact task it is wanted for.
+
+- name: "RCLONE | Download the upstream Debian package."
+  get_url:
+    url: "{{ viper.tools.rclone.source.loc }}"
+    dest: "/tmp/rclone-{{ rclone_version }}-amd64.deb"
+    mode: '0644'
+
+- name: "RCLONE | Install the Debian package."
+  apt:
+    deb: "/tmp/rclone-{{ rclone_version }}-amd64.deb"
+    state: present
+
+- name: "RCLONE | Clean up the downloaded package."
+  file:
+    path: "/tmp/rclone-{{ rclone_version }}-amd64.deb"
+    state: absent
+
+- name: "RCLONE | Record the installed version."
+  command: "rclone version"
+  register: rclone_installed
+  changed_when: false
+
+- name: "RCLONE | Confirm the installed version matches the pinned one."
+  assert:
+    that:
+      - "'v' ~ rclone_version in rclone_installed.stdout"
+    fail_msg: >-
+      rclone reports {{ rclone_installed.stdout_lines[0] | default('nothing') }},
+      which does not match the pinned {{ rclone_version }}.
+    success_msg: "rclone {{ rclone_version }} installed"

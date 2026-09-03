@@ -21,9 +21,15 @@ viper_debian_tools:
   # Debian GIMP installation
   - "gimp"
 
+# OpenFixity's own desktop file id, which follows neither the package name nor the
+# reverse-DNS convention the other tools use.
+openfixity_desktop_id: "openfixity-OpenFixity"
+
 # Desktop icon files
 viper_debian_icons:
-  - "org.gnome.Evince"
+  # Atril, not Evince: MATE's document viewer. Verified against the desktop files the
+  # build actually produces, since the ids do not follow package names consistently.
+  - "atril"
   - "gimp"
   - "org.inkscape.Inkscape"
   - "mediainfo-gui"
@@ -68,6 +74,12 @@ odf_validator_version: "0.20-beta-1"
 
 # Distributed only as an alpha, from GitHub releases rather than a package repository.
 openfixity_version: "0.1.1-ALPHA"
+
+# rclone comes from upstream rather than apt. Ubuntu 24.04 ships 1.60.1, from 2022,
+# and the cloud providers rclone talks to change their OAuth flows regularly, so a
+# client that old is the wrong thing to hand someone who needs to reach OneDrive or
+# Google Drive. Upstream publishes a .deb per release.
+rclone_version: "1.75.0"
 
 # The Arlington PDF model build is published under /dev/ and versioned by build number,
 # so this pins a build rather than a release tag.
@@ -172,14 +184,23 @@ viper:
         git: "https://github.com/openpreserve/OpenFixity.git"
         tag: "v{{ openfixity_version }}"
         loc: "https://github.com/openpreserve/OpenFixity/releases/download/v{{ openfixity_version }}/OpenFixity-{{ openfixity_version }}-linux-x64.deb"
+    rclone:
+      name: "rclone"
+      version: "{{ rclone_version }}"
+      source:
+        git: "https://github.com/rclone/rclone.git"
+        tag: "v{{ rclone_version }}"
+        loc: "https://downloads.rclone.org/v{{ rclone_version }}/rclone-v{{ rclone_version }}-linux-amd64.deb"
     verapdf-arlington:
       name: "verapdf-arlington"
       desktop_name: "Arlington PDF Model Checker"
       generic_name: "PDF Validation"
       comment: "Checks PDF files against the Arlington PDF Model. A veraPDF development build."
       exec: "arlington-pdf-model-checker-gui"
-      # Reuses the veraPDF icon: this is the same project's Arlington build.
-      icon: "verapdf.png"
+      # The Arlington cube, extracted from org/verapdf/gui/images/arlington-logo.png
+      # in the tool's own gui jar, so the launcher matches the running application.
+      # Not icon.png from the same jar, which is a cropped veraPDF wordmark.
+      icon: "verapdf-arlington.png"
       version: "{{ verapdf_arlington_version }}"
       source:
         git: "https://github.com/veraPDF/veraPDF-library.git"
@@ -201,6 +222,16 @@ viper:
       - name: "libmediaconch0"
         download_url: "https://mediaarea.net/download/binary/libmediaconch0/25.04/libmediaconch0_25.04-1_amd64.Debian_12.deb"
         package_name: "libmediaconch0_25.04-1_amd64.Debian_12.deb"
+      # CLI counterparts, pinned to the same upstream versions as the GUIs below.
+      # Ubuntu ships mediainfo 24.01 and mediaconch 23.10, which would put two
+      # different versions of the same tool on one appliance and make the CLI and the
+      # GUI disagree, so these come from MediaArea like everything else here.
+      - name: "mediainfo"
+        download_url: "https://mediaarea.net/download/binary/mediainfo/26.05/mediainfo_26.05-1_amd64.Debian_12.deb"
+        package_name: "mediainfo_26.05-1_amd64.Debian_12.deb"
+      - name: "mediaconch"
+        download_url: "https://mediaarea.net/download/binary/mediaconch/25.04/mediaconch_25.04-1_amd64.Debian_12.deb"
+        package_name: "mediaconch_25.04-1_amd64.Debian_12.deb"
       - name: "mediainfo-gui"
         download_url: "https://mediaarea.net/download/binary/mediainfo-gui/26.05/mediainfo-gui_26.05-1_amd64.Debian_12.deb"
         package_name: "mediainfo-gui_26.05-1_amd64.Debian_12.deb"

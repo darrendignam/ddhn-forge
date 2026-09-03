@@ -33,6 +33,14 @@
 - name: "ViPER TOOLS | Install OpenFixity."
   import_tasks: openfixity.yml
 
+- name: "ViPER TOOLS | Install rclone."
+  import_tasks: rclone.yml
+
 # Last, so it records everything the tasks above actually installed.
 - name: "ViPER TOOLS | Record installed tool versions."
   import_tasks: manifest.yml
+
+# After every launcher exists, so the staged copy is complete.
+- name: "ViPER TOOLS | Stage desktop launchers for the container."
+  import_tasks: desktop-staging.yml
+  when: ansible_virtualization_type == "docker"

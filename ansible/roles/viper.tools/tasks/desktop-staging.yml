@@ -1,0 +1,23 @@
+---
+# Stage the container's desktop launchers where the published image can still reach them.
+#
+# /config is a declared VOLUME in the webtop base image, and docker commit does not
+# capture volume contents, so every .desktop file the build writes into /config/Desktop
+# is silently discarded from the released image. The launchers therefore have to live
+# somewhere that does get committed.
+#
+# /home/viper/Desktop is committed but is not a usable source: it is mode 750 owned by
+# viper, and post-install.sh runs as the session account abc, which cannot traverse it.
+# This copy is root owned and world readable, so abc can read it at run time.
+#
+# Runs at the end of viper.tools, after every tool has added its launcher.
+
+- name: "DESKTOP STAGING | Copy the tool launchers out of the /config volume."
+  copy:
+    src: "/home/{{ viper_account_name }}/Desktop/"
+    dest: "/usr/local/share/viper/desktop/"
+    owner: root
+    group: root
+    mode: '0755'
+    directory_mode: '0755'
+    remote_src: yes

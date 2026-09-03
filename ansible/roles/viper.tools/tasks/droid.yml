@@ -12,8 +12,14 @@
     dest: "{{ viper.tools.droid.dests.lib }}"
     remote_src: yes
 
-- name: "DROID | Create symlink for shell file."
+# droid.sh dispatches on argument count: with arguments it runs the command line jar,
+# without them the UI jar. Both entry points are therefore the same script, and without
+# the second one "droid" is not a command at a terminal.
+- name: "DROID | Create symlinks for shell file."
   file:
     src: "{{ viper.tools.droid.dests.lib }}/droid.sh"
-    dest: "{{ viper.tools.droid.dests.bin }}/droid-gui"
+    dest: "{{ viper.tools.droid.dests.bin }}/{{ item }}"
     state: link
+  loop:
+    - "droid-gui"
+    - "droid"
