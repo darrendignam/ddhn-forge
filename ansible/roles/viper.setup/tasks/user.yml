@@ -16,7 +16,7 @@
     # ViPER is a research environment, so users have to be able to install their own
     # tools. This is the only administrative path on the appliance: the build account
     # is locked during cleanup and root has no password. sudo prompts, and the blank
-    # password satisfies it via the nullok that Debian's common-auth ships by
+    # password satisfies it via the nullok that Ubuntu's common-auth ships by
     # default. smoke-test.sh proves that works rather than trusting it.
     groups: "vboxsf,sudo"
     password: "{{ viper.setup.limited_account.password }}"
@@ -72,20 +72,8 @@
 
 # GNOME needed an autostart shim to stop it restoring the previous session and landing
 # the user in the Activities overview. MATE has no overview and does not restore sessions
-# by default, so this is a plain dconf setting rather than a login-time workaround.
-- name: "USER | Keep MATE sessions predictable across reboots."
-  become: true
-  become_user: "{{ viper.setup.limited_account.name }}"
-  community.general.dconf:
-    key: "{{ item.key }}"
-    value: "{{ item.value }}"
-    state: present
-  loop:
-    - { key: "/org/mate/session/auto-save-session", value: "false" }
-    - { key: "/org/mate/marco/general/num-workspaces", value: "1" }
-  loop_control:
-    label: "{{ item.key }}"
-  when: ansible_virtualization_type != "docker"
+# by default, so the equivalent is two plain settings, and they live with the rest of the
+# desktop defaults in files/etc/dconf/db/viper.d/00-viper-desktop.
 - name: "USER | Add execute privileges to the desktop dir."
   file:
     path: "{{ viper.setup.limited_account.home }}/Desktop"

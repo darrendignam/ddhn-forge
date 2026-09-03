@@ -1,0 +1,33 @@
+[org/mate/desktop/background]
+picture-filename='/usr/local/share/backgrounds/viper-desktop.jpg'
+picture-options='zoom'
+show-desktop-icons=true
+
+[org/mate/desktop/interface]
+gtk-theme='Mint-Y-Blue'
+icon-theme='Mint-Y'
+
+[org/mate/marco/general]
+theme='Mint-Y'
+num-workspaces=1
+
+[org/mate/caja/desktop]
+volumes-visible=true
+computer-icon-visible=false
+home-icon-visible=true
+trash-icon-visible=true
+
+[org/mate/caja/preferences]
+executable-text-activation='launch'
+
+[org/mate/session]
+auto-save-session=false
+
+# mintMenu's Favorites pane. Without this it shows Mint's stock list, which names apps
+# from four desktop environments and silently drops the ones that are not installed, so
+# on ViPER it came out as just Terminal and Displays.
+#
+# mintMenu reads this key, not applications.list. The file is only a one-time migration
+# source and is ignored once the key is non-empty, which it now always is.
+[com/linuxmint/mintmenu/plugins/applications]
+favorite-apps-list={{ viper_menu_favorites | to_json }}

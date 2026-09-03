@@ -7,22 +7,121 @@
 mint_codename: "zena"
 mint_keyring_url: "http://packages.linuxmint.com/pool/main/l/linuxmint-keyring/linuxmint-keyring_2022.06.21_all.deb"
 
-# Default packages for Docker containers (minimal set, for Debian Bookworm)
+# Default packages for Docker containers (Ubuntu 24.04 base, MATE desktop).
+# No display manager and no full desktop metapackage: webtop supplies the session, so the
+# container needs the MATE session and applications but not lightdm, greeters or Marco's
+# power management.
 viper_env_apt_docker_defaults:
   - "git"
   - "apt-transport-https"
+  # SSL/TLS certificate authority certificates for HTTPS
+  - "ca-certificates"
   - "psmisc"
   - "net-tools"
-  - "python3-psutil"
+  # Provides `dconf update`, which compiles the system-wide desktop defaults
+  - "dconf-cli"
   - "zip"
   - "unzip"
   - "keyboard-configuration"
   - "console-setup"
-  - "openjdk-17-jre"
-  - "evince"
+  # Java 21, not 17. DROID 6.9.13's jars are compiled for Java 21 (class file version
+  # 65) and fail with UnsupportedClassVersionError on a 17 runtime, which took out both
+  # droid and droid-gui. JHOVE, Tika, veraPDF, Arlington and the ODF validator all run
+  # unchanged on 21, so one JRE serves everything.
+  - "openjdk-21-jre"
   - "locales"
-  - "firefox-esr"
+  # MATE session and the applications the tools rely on
+  - "mate-desktop-environment-core"
+  - "mate-terminal"
+  - "mate-system-monitor"
+  - "caja"
+  - "caja-open-terminal"
+  - "atril"
+  - "eom"
+  - "engrampa"
+  # The Mint look, shared with the VM
+  - "mint-themes"
+  - "mint-y-icons"
+  - "mint-artwork"
+  - "mintmenu"
+  # mint.layout places MateXAppStatusApplet on the panel. Without it mate-panel puts up
+  # a modal "encountered a problem while loading" dialog over the desktop at login.
+  - "mate-xapp-status-applet"
+  - "firefox"
   - "conky-all"
+  # Digital preservation command line toolkit. These are the tools a practitioner
+  # automates with: format conversion, PDF/A normalisation, metadata extraction,
+  # fixity, and the XML/JSON plumbing that scripts and LLM pipelines need.
+  #
+  # mediainfo and mediaconch are deliberately absent: Ubuntu's are older than the
+  # MediaArea GUIs already installed, so viper.tools pulls matching CLI builds instead.
+  - "ffmpeg"
+  - "imagemagick"
+  - "ghostscript"
+  - "qpdf"
+  - "poppler-utils"
+  - "libimage-exiftool-perl"
+  # PDF/A normalisation. ocrmypdf --output-type pdfa produces files that the bundled
+  # veraPDF then validates as compliant, which is the whole round trip in two commands.
+  - "ocrmypdf"
+  - "tesseract-ocr"
+  - "tesseract-ocr-eng"
+  - "libvips-tools"
+  - "img2pdf"
+  - "unpaper"
+  # Structured data handling for automation and policy documents
+  - "jq"
+  - "xmlstarlet"
+  - "libxml2-utils"
+  # Packaging, fixity and archives
+  - "p7zip-full"
+  - "hashdeep"
+  - "sqlite3"
+  # Transfer and remote storage. rclone itself comes from upstream via viper.tools,
+  # because Ubuntu's is three years old and cloud OAuth does not stand still.
+  - "rsync"
+  # Lets Caja browse SFTP, WebDAV and SMB shares from the file manager, so the GUI has
+  # a route to remote storage as well as the command line.
+  - "gvfs-backends"
+  - "sshfs"
+  # Interactive shell. zsh-syntax-highlighting colours a command by whether it resolves,
+  # zsh-autosuggestions offers the rest of the line in grey from history.
+  - "zsh"
+  - "zsh-syntax-highlighting"
+  - "zsh-autosuggestions"
+
+# mintMenu Favorites, in display order. Preservation tools first, because they are the
+# reason the appliance exists, then the viewers and editors they hand off to, then the
+# shell. "separator" and "space" are the two non-launcher entries mintMenu understands.
+#
+# These are menu entries, not desktop icons. viper.tools decides what lands on the
+# desktop; this decides what the menu offers first, and the two lists are curated
+# separately on purpose.
+viper_menu_favorites:
+  - "location:/usr/share/applications/jhove.desktop"
+  - "location:/usr/share/applications/droid.desktop"
+  - "location:/usr/share/applications/verapdf.desktop"
+  - "location:/usr/share/applications/verapdf-arlington.desktop"
+  - "location:/usr/share/applications/tika.desktop"
+  - "location:/usr/share/applications/mediaconch-gui.desktop"
+  - "location:/usr/share/applications/mediainfo-gui.desktop"
+  - "location:/usr/share/applications/openfixity-OpenFixity.desktop"
+  - "separator"
+  - "location:/usr/share/applications/atril.desktop"
+  - "location:/usr/share/applications/org.inkscape.Inkscape.desktop"
+  - "location:/usr/share/applications/gimp.desktop"
+  - "location:/usr/share/applications/fr.handbrake.ghb.desktop"
+  - "separator"
+  - "location:/usr/share/applications/firefox.desktop"
+  - "location:/usr/share/applications/mate-terminal.desktop"
+
+# Folders to surface on the desktop, as symlinks rather than .desktop launchers. Caja
+# renders a symlinked directory as a folder, so it opens on double click and accepts
+# dropped files, and it needs none of the trusted-launcher metadata a Type=Application
+# file would. Targets are created if missing.
+viper_desktop_folders:
+  - name: "Sample Files"
+    path: "/usr/local/share/viper/samples"
 
 # Default packages for VMs (Ubuntu 24.04 base plus the MATE desktop and Mint theming)
 viper_env_apt_vm_defaults:
@@ -30,11 +129,13 @@ viper_env_apt_vm_defaults:
   - "git"
   # Debian lacks the ability to download apt over HTTPS
   - "apt-transport-https"
+  # SSL/TLS certificate authority certificates for HTTPS
+  - "ca-certificates"
   # Install some helper network tools
   - "psmisc"
   - "net-tools"
-  # Python3 module so that ansible can handle dconf tasks
-  - "python3-psutil"
+  # Provides `dconf update`, which compiles the system-wide desktop defaults
+  - "dconf-cli"
   # Zip and unzip are always handy
   - "zip"
   - "unzip"
@@ -42,7 +143,11 @@ viper_env_apt_vm_defaults:
   - "keyboard-configuration"
   - "console-setup"
   # Open JDK 17 for Java
-  - "openjdk-17-jre"
+  # Java 21, not 17. DROID 6.9.13's jars are compiled for Java 21 (class file version
+  # 65) and fail with UnsupportedClassVersionError on a 17 runtime, which took out both
+  # droid and droid-gui. JHOVE, Tika, veraPDF, Arlington and the ODF validator all run
+  # unchanged on 21, so one JRE serves everything.
+  - "openjdk-21-jre"
   # MATE desktop. Ubuntu Server has no desktop, so this is the whole graphical stack.
   # mate-desktop-environment rather than ubuntu-mate-desktop: the latter pulls Ubuntu
   # branding and a large recommends set that Mint's theming then has to override.
@@ -65,8 +170,51 @@ viper_env_apt_vm_defaults:
   - "mint-y-icons"
   - "mint-artwork"
   - "mintmenu"
+  # mint.layout places MateXAppStatusApplet on the panel. Without it mate-panel puts up
+  # a modal "encountered a problem while loading" dialog over the desktop at login.
+  - "mate-xapp-status-applet"
   - "locales"
   # GRUB tools for boot configuration
+  # Digital preservation command line toolkit. These are the tools a practitioner
+  # automates with: format conversion, PDF/A normalisation, metadata extraction,
+  # fixity, and the XML/JSON plumbing that scripts and LLM pipelines need.
+  #
+  # mediainfo and mediaconch are deliberately absent: Ubuntu's are older than the
+  # MediaArea GUIs already installed, so viper.tools pulls matching CLI builds instead.
+  - "ffmpeg"
+  - "imagemagick"
+  - "ghostscript"
+  - "qpdf"
+  - "poppler-utils"
+  - "libimage-exiftool-perl"
+  # PDF/A normalisation. ocrmypdf --output-type pdfa produces files that the bundled
+  # veraPDF then validates as compliant, which is the whole round trip in two commands.
+  - "ocrmypdf"
+  - "tesseract-ocr"
+  - "tesseract-ocr-eng"
+  - "libvips-tools"
+  - "img2pdf"
+  - "unpaper"
+  # Structured data handling for automation and policy documents
+  - "jq"
+  - "xmlstarlet"
+  - "libxml2-utils"
+  # Packaging, fixity and archives
+  - "p7zip-full"
+  - "hashdeep"
+  - "sqlite3"
+  # Transfer and remote storage. rclone itself comes from upstream via viper.tools,
+  # because Ubuntu's is three years old and cloud OAuth does not stand still.
+  - "rsync"
+  # Lets Caja browse SFTP, WebDAV and SMB shares from the file manager, so the GUI has
+  # a route to remote storage as well as the command line.
+  - "gvfs-backends"
+  - "sshfs"
+  # Interactive shell. zsh-syntax-highlighting colours a command by whether it resolves,
+  # zsh-autosuggestions offers the rest of the line in grey from history.
+  - "zsh"
+  - "zsh-syntax-highlighting"
+  - "zsh-autosuggestions"
   - "grub-common"
 
 # Use Docker defaults if running in Docker, otherwise use VM defaults
@@ -86,7 +234,21 @@ viper_env_apt_docker_remove:
   - "chromium-common"
   - "chromium-sandbox"
 
-# Packages to remove from VMs (Debian 12 cruft)
+# Packages to remove from VMs.
+#
+# Inherited from the Debian 12 build and dangerous on Ubuntu 24.04 with MATE. apt
+# removes reverse dependencies too, and three entries here were quietly fatal:
+#
+#   openssl  ca-certificates, openjdk-21-jre, python3-pip, software-properties-common
+#   gnupg    mate-desktop-environment-core, caja, gvfs, udisks2, linuxmint-keyring
+#   bc       the entire CUPS printing stack
+#
+# Removing openssl and gnupg would have shipped an appliance with no Java runtime, no
+# HTTPS and no file manager to draw the desktop. All three are gone from this list.
+#
+# scripts/tests/validate-package-lists.py checks a list against a built image and
+# fails if anything would be removed that was not asked for. Run it before adding to
+# this list.
 viper_env_apt_vm_remove:
   - "acpi"
   - "apcid"
@@ -95,9 +257,10 @@ viper_env_apt_vm_remove:
   - "aspell"
   - "aspell-en"
   - "avahi-daemon"
-  - "bc"
   - "bin86"
   - "bind9-host"
+  # current name for dnsutils, which is already listed below
+  - "bind9-dnsutils"
   - "console-common"
   - "console-data"
   - "console-tools"
@@ -121,7 +284,6 @@ viper_env_apt_vm_remove:
   - "foomatic-filters"
   - "gettext-base"
   - "groff"
-  - "gnupg"
   - "gnu-efi"
   - "grub"
   - "hplip"
@@ -135,14 +297,13 @@ viper_env_apt_vm_remove:
   - "libc6-i686"
   - "libgpmg1"
   - "manpages"
+  - "manpages-dev"
   - "mtools"
   - "mtr-tiny"
   - "mutt"
   - "nano"
   - "netcat"
-  - "net-tools"
   - "ncurses-term"
-  - "openssl"
   - "pidentd"
   - "ppp"
   - "pppconfig"

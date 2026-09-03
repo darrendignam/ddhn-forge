@@ -28,3 +28,8 @@
       exit 1
     fi
 
+
+# dconf reads the compiled binary db, not the keyfiles in viper.d, so the keyfiles have
+# no effect until this runs.
+- name: compile the dconf database
+  command: dconf update

@@ -1,8 +1,12 @@
 ---
 # Desktop environment setup for ViPER.
 #
-# VMs run MATE on Ubuntu 24.04 with Linux Mint's theming. Containers run XFCE, which
-# webtop supplies pre-configured, so the two halves are guarded on virtualization_type.
+# Both VMs and containers run MATE on Ubuntu 24.04 with Linux Mint's theming, so the
+# desktop settings themselves are shared. They are applied through a system-wide dconf
+# database rather than per-user keys, for two reasons:
+#   - in the container /config is a volume mount, so anything written into the account's
+#     home at build time is discarded when the volume is attached at run time
+#   - a system db is a default, not an override, so the user can still change any of it
 #
 # MATE is not GNOME with different names. Three differences matter here:
 #   - the wallpaper key takes a plain path, not a file:// URI
@@ -16,46 +20,175 @@
     path: "/usr/local/share/backgrounds"
     state: directory
     mode: '0755'
-  when: ansible_virtualization_type != "docker"
 
 - name: "Desktop | Copy ViPER wallpaper to shared backgrounds directory."
   copy:
     src: "files/usr/local/share/backgrounds/viper-desktop.jpg"
     dest: "/usr/local/share/backgrounds/viper-desktop.jpg"
     mode: '0644'
+
+- name: "Desktop | Create the dconf profile and database directories."
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/dconf/profile
+    - /etc/dconf/db/viper.d
+
+- name: "Desktop | Install the system-wide dconf profile."
+  copy:
+    src: "files/etc/dconf/profile/user"
+    dest: "/etc/dconf/profile/user"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Desktop | Install the ViPER MATE desktop defaults."
+  template:
+    src: "etc/dconf/db/viper.d/00-viper-desktop.j2"
+    dest: "/etc/dconf/db/viper.d/00-viper-desktop"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: compile the dconf database
+
+# Desktop folder shortcuts. The target is created here so the link is never dangling,
+# and stays root owned: a shared corpus is reference material, not a working directory.
+# Interactive shell. /etc/zsh/zshrc is sourced for every interactive zsh, so this
+# reaches the desktop terminal and any SSH session without touching a user dotfile.
+- name: "Shell | Install the ViPER zsh configuration."
+  copy:
+    src: "files/etc/zsh/viper.zsh"
+    dest: "/etc/zsh/viper.zsh"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Shell | Source the ViPER zsh configuration from the system zshrc."
+  lineinfile:
+    path: /etc/zsh/zshrc
+    line: "[[ -r /etc/zsh/viper.zsh ]] && source /etc/zsh/viper.zsh"
+    state: present
+    create: true
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Shell | Ensure the ViPER share directory exists."
+  file:
+    path: "/usr/local/share/viper"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# zsh runs zsh-newuser-install whenever an account has none of .zshenv, .zprofile,
+# .zshrc or .zlogin, which opens a blocking configuration menu the first time anyone
+# opens a terminal. A system wide config in /etc/zsh does not count, so every account
+# needs the file to exist even though it is deliberately almost empty.
+- name: "Shell | Install a default .zshrc into /etc/skel."
+  copy:
+    src: "files/etc/skel/.zshrc"
+    dest: "/etc/skel/.zshrc"
+    owner: root
+    group: root
+    mode: '0644'
+
+# The ViPER account already exists by this point, so skel does not reach it. The
+# container equivalent runs from post-install.sh, because there the home is a volume.
+- name: "Shell | Install .zshrc for the ViPER account."
+  copy:
+    src: "files/etc/skel/.zshrc"
+    dest: "/home/{{ viper.setup.limited_account.name }}/.zshrc"
+    owner: "{{ viper.setup.limited_account.name }}"
+    group: "{{ viper.setup.limited_account.name }}"
+    mode: '0644'
   when: ansible_virtualization_type != "docker"
 
-- name: "Desktop | Apply MATE desktop settings for the ViPER account."
-  become: true
-  become_user: "{{ viper.setup.limited_account.name }}"
-  community.general.dconf:
-    key: "{{ item.key }}"
-    value: "{{ item.value }}"
-    state: present
-  loop:
-    # Wallpaper. Note this is a path, where GNOME took a file:// URI.
-    - { key: "/org/mate/desktop/background/picture-filename",
-        value: "'/usr/local/share/backgrounds/viper-desktop.jpg'" }
-    - { key: "/org/mate/desktop/background/picture-options", value: "'zoom'" }
-    # Caja draws the desktop, which is what puts the tool launchers on it
-    - { key: "/org/mate/desktop/background/show-desktop-icons", value: "true" }
-    - { key: "/org/mate/caja/desktop/volumes-visible", value: "true" }
-    - { key: "/org/mate/caja/desktop/computer-icon-visible", value: "false" }
-    - { key: "/org/mate/caja/desktop/home-icon-visible", value: "true" }
-    - { key: "/org/mate/caja/desktop/trash-icon-visible", value: "true" }
-    # The Mint look
-    - { key: "/org/mate/desktop/interface/gtk-theme", value: "'Mint-Y-Blue'" }
-    - { key: "/org/mate/desktop/interface/icon-theme", value: "'Mint-Y'" }
-    - { key: "/org/mate/marco/general/theme", value: "'Mint-Y'" }
-    # Launching a .desktop file from the desktop should just run it
-    - { key: "/org/mate/caja/preferences/executable-text-activation", value: "'launch'" }
+- name: "Shell | Stage .zshrc for the container account."
+  copy:
+    src: "files/etc/skel/.zshrc"
+    dest: "/usr/local/share/viper/zshrc"
+    owner: root
+    group: root
+    mode: '0644'
+  when: ansible_virtualization_type == "docker"
+
+# Seeds the grey autosuggestions. A new appliance has no shell history, so without
+# this the feature stays invisible until the user has typed each command by hand.
+- name: "Shell | Install the seeded ViPER command history."
+  copy:
+    src: "files/usr/local/share/viper/viper-history"
+    dest: "/usr/local/share/viper/viper-history"
+    owner: root
+    group: root
+    mode: '0644'
+
+# The terminal takes the account's login shell from /etc/passwd. The VM logs in as the
+# ViPER account, the container's desktop runs as abc, so both need setting.
+# The reference ships with the appliance, so it works with no network. It is the same
+# file as docs/tools/cli.md, copied rather than duplicated so the two cannot drift.
+- name: "Shell | Install the ViPER command line reference."
+  copy:
+    src: "{{ playbook_dir }}/../docs/tools/cli.md"
+    dest: "/usr/local/share/viper/CLI-REFERENCE.md"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "Shell | Install the viper-tools reference viewer."
+  copy:
+    src: "files/usr/local/bin/viper-tools"
+    dest: "/usr/local/bin/viper-tools"
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: "Shell | Make zsh the login shell."
+  user:
+    name: "{{ (ansible_virtualization_type == 'docker') | ternary('abc', viper.setup.limited_account.name) }}"
+    shell: /usr/bin/zsh
+
+- name: "Desktop | Create the target directories for desktop folder shortcuts."
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ viper_desktop_folders }}"
   loop_control:
-    label: "{{ item.key }}"
+    label: "{{ item.path }}"
+
+- name: "Desktop | Populate the shared sample corpus."
+  copy:
+    src: "files/usr/local/share/viper/samples/"
+    dest: "/usr/local/share/viper/samples/"
+    owner: root
+    group: root
+    mode: '0644'
+    directory_mode: '0755'
+
+- name: "Desktop | Link the shared folders onto the ViPER desktop."
+  file:
+    src: "{{ item.path }}"
+    dest: "/home/{{ viper.setup.limited_account.name }}/Desktop/{{ item.name }}"
+    state: link
+    owner: "{{ viper.setup.limited_account.name }}"
+    group: "{{ viper.setup.limited_account.name }}"
+    force: true
+  loop: "{{ viper_desktop_folders }}"
+  loop_control:
+    label: "{{ item.name }}"
   when: ansible_virtualization_type != "docker"
 
 # Caja refuses to run a desktop launcher it does not trust, showing "Untrusted application
 # launcher" instead of the tool. The trust flag is per-file user metadata, so it has to be
-# set as the ViPER account, after the .desktop files exist.
+# set as the ViPER account, after the .desktop files exist. The container equivalent runs
+# from post-install.sh, because there the desktop lives on the /config volume.
 - name: "Desktop | Find the tool launchers on the desktop."
   find:
     paths: "/home/{{ viper.setup.limited_account.name }}/Desktop"
@@ -73,19 +206,33 @@
   changed_when: false
   when: ansible_virtualization_type != "docker"
 
-# Docker/XFCE Desktop Configuration
-- name: "DOCKER | Create shared backgrounds directory."
+# The container desktop lives on the /config volume, which is replaced at run time, so
+# its shortcuts are made by post-install.sh instead. It reads the list from here rather
+# than hardcoding it, so both halves stay driven by viper_desktop_folders.
+- name: "DOCKER | Ensure the ViPER share directory exists."
   file:
-    path: "/usr/local/share/backgrounds"
+    path: "/usr/local/share/viper"
     state: directory
+    owner: root
+    group: root
+    mode: '0755'
   when: ansible_virtualization_type == "docker"
 
-- name: "DOCKER | Copy ViPER wallpaper to shared backgrounds directory."
+- name: "DOCKER | Record the desktop folder shortcuts for post-install."
   copy:
-    src: "files/usr/local/share/backgrounds/viper-desktop.jpg"
-    dest: "/usr/local/share/backgrounds/viper-desktop.jpg"
+    dest: "/usr/local/share/viper/desktop-folders.conf"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # name<TAB>target, written from viper_desktop_folders. Read by post-install.sh.
+      {% for folder in viper_desktop_folders %}
+      {{ folder.name }}	{{ folder.path }}
+      {% endfor %}
   when: ansible_virtualization_type == "docker"
 
+# Container-only configuration below. The container shares the desktop settings above and
+# differs only in how the session is started and how /config is populated at run time.
 - name: "DOCKER | Create Conky config directory."
   file:
     path: "/usr/local/share/conky"
@@ -120,21 +267,53 @@
 # Note: /config is a volume mount, so we cannot create files there during build
 # All /config configuration is handled by the post-install script at runtime
 
-- name: "DOCKER | Install XFCE system monitor plugins."
-  apt:
-    name:
-      - xfce4-systemload-plugin
-      - xfce4-cpugraph-plugin
-      - xfce4-netload-plugin
-    state: present
+# The session launcher. /defaults/startwm.sh is what actually starts the desktop:
+# s6-rc.d/svc-de/run invokes it directly. The openbox /defaults/autostart that the
+# kasmvnc base image documents is vestigial in the webtop images and is never read,
+# so writing MATE there left XFCE running and looked like a theming failure.
+#
+# Overwritten wholesale rather than patched: the stock script hardcodes xfce4-session
+# and seeds XFCE's per-channel xfconf defaults, neither of which applies here. The
+# Nvidia block is kept verbatim from the base so GPU passthrough behaves the same.
+- name: "DOCKER | Start MATE as the container session."
+  copy:
+    dest: "/defaults/startwm.sh"
+    owner: root
+    group: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+
+      # Enable Nvidia GPU support if detected
+      if which nvidia-smi; then
+          export LIBGL_KOPPER_DRI2=1
+          export MESA_LOADER_DRIVER_OVERRIDE=zink
+          export GALLIUM_DRIVER=zink
+      fi
+
+      export XDG_CURRENT_DESKTOP=MATE
+      export XDG_SESSION_DESKTOP=mate
+      export DESKTOP_SESSION=mate
+
+      dbus-launch --exit-with-session /usr/bin/mate-session > /dev/null 2>&1
   when: ansible_virtualization_type == "docker"
 
-- name: "DOCKER | Configure Firefox as default browser in XFCE."
-  file:
-    src: "/usr/share/applications/firefox-esr.desktop"
-    dest: "/usr/share/applications/chromium.desktop"
-    state: link
-    force: yes
+# Browser tab favicon and the KasmVNC client icon. This base image serves the client
+# from /kclient/public. A Dockerfile in docker-files/ used to carry this branding but
+# was never part of the release path, which is ansible plus docker commit, and it wrote
+# to a /ksuite/public that does not exist in this image. It has been removed.
+- name: "DOCKER | Apply ViPER browser branding."
+  copy:
+    src: "{{ playbook_dir }}/../docker-files/{{ item.src }}"
+    dest: "/kclient/public/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - { src: "favicon.ico", dest: "favicon.ico" }
+    - { src: "apple-touch-icon.png", dest: "icon.png" }
+  loop_control:
+    label: "{{ item.dest }}"
   when: ansible_virtualization_type == "docker"
 
 - name: "DOCKER | Copy post-install script for desktop icon configuration."

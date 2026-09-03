@@ -1,0 +1,61 @@
+exiftool -a -G1 file.tif
+exiftool -all= -overwrite_original copy.jpg
+pdfinfo document.pdf
+pdftotext -layout document.pdf out.txt
+pdfimages -list document.pdf
+pdftoppm -r 300 -png document.pdf page
+qpdf --check document.pdf
+qpdf --linearize in.pdf out.pdf
+qpdf --decrypt --password=secret locked.pdf open.pdf
+gs -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile=out.pdf in.pdf
+img2pdf scan1.tif scan2.tif -o scanned.pdf
+convert input.jpg -resize 50% output.jpg
+convert input.tif -colorspace sRGB -quality 90 output.jpg
+identify -verbose image.tif
+vips copy input.tif output.tif[compression=lzw]
+vipsheader -a image.tif
+ffprobe -v error -show_format -show_streams video.mkv
+ffmpeg -i input.mov -c:v ffv1 -level 3 -c:a flac preservation.mkv
+ffmpeg -i input.mkv -c:v libx264 -crf 20 -c:a aac access.mp4
+ffmpeg -i input.wav -c:a flac output.flac
+mediainfo --Output=XML video.mkv
+mediainfo --Output=JSON video.mkv
+mediaconch -p policy.xml video.mkv
+mediaconch --Format=XML video.mkv
+xmllint --noout --schema mets.xsd package.xml
+xmlstarlet sel -t -v "//premis:eventType" -n premis.xml
+jq '.[] | {name, status}' report.json
+hashdeep -r -c sha256 /path/to/collection > manifest.txt
+hashdeep -r -a -k manifest.txt /path/to/collection
+sha256sum -c checksums.txt
+7z a -mx=9 package.7z /path/to/collection
+tesseract scan.tif out -l eng pdf
+jpylyzer image.jp2
+odf-validator document.odt
+fido -recurse /path/to/collection
+fido -matchprintf "%(info.filename)s,%(info.puid)s\n" file.pdf
+tika --detect document.docx
+tika --text document.docx > document.txt
+tika --metadata --json document.docx
+droid -a /path/to/collection -p profile.droid
+droid -p profile.droid -e report.csv
+arlington-pdf-model-checker document.pdf
+jhove -m PDF-hul -h xml -o report.xml document.pdf
+jhove -m TIFF-hul -h xml -o report.xml image.tif
+jhove -m JPEG-hul -h xml -o report.xml photo.jpg
+verapdf -f 1b --format xml document.pdf
+verapdf -f 2b --format text document.pdf
+verapdf --format mrr -f 2b document.pdf > report.xml
+ocrmypdf --skip-text --output-type pdfa in.pdf pdfa.pdf
+ocrmypdf -l eng --output-type pdfa scanned.pdf pdfa.pdf
+ocrmypdf --output-type pdfa --optimize 3 in.pdf out.pdf
+rsync -av --progress /source/ /destination/
+rsync -av --checksum /source/ user@host:/destination/
+rclone config
+rclone listremotes
+rclone ls onedrive:Archive
+rclone copy /local/batch onedrive:Archive/batch --progress
+rclone sync /local/batch gdrive:Archive/batch --dry-run
+rclone check /local/batch onedrive:Archive/batch --one-way
+rclone hashsum sha256 onedrive:Archive/batch
+rclone mount gdrive: ~/gdrive --daemon

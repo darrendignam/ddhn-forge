@@ -1,0 +1,20 @@
+#!/bin/bash
+# Show the ViPER command line reference. Ships with the appliance so it works offline.
+#
+#   viper-tools          page the whole reference
+#   viper-tools pdfa     show just the matching sections
+
+set -uo pipefail
+
+REFERENCE=/usr/local/share/viper/CLI-REFERENCE.md
+
+if [[ ! -r "$REFERENCE" ]]; then
+  echo "ViPER command line reference is not installed at $REFERENCE" >&2
+  exit 1
+fi
+
+if [[ $# -gt 0 ]]; then
+  grep -i -n -A6 -- "$1" "$REFERENCE" | ${PAGER:-less -R}
+else
+  ${PAGER:-less -R} "$REFERENCE"
+fi
