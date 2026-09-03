@@ -40,3 +40,48 @@
 # anything had been installed and without purge or autoremove, so it was a strictly
 # weaker duplicate of the later one: two full apt transactions per build for the work
 # of one. prerequisites.yml owns the removal now.
+
+# Subiquity leaves the interface with systemd-networkd, so NetworkManager reports
+# "disconnected" and the panel applet shows a red cross across a working connection. On
+# a desktop appliance that icon is the first thing a user checks when something seems
+# wrong, and it was telling them the opposite of the truth.
+#
+# renderer: NetworkManager is what Ubuntu Desktop itself ships. NetworkManager then owns
+# the interface, the applet reflects reality, and a user can add wifi or a static address
+# from the desktop instead of editing YAML as root.
+#
+# 99- so it sorts after the installer's own file and wins the merge. Deliberately not
+# applied during the build: netplan apply would renegotiate the very interface Packer is
+# connected over. It takes effect on the user's first boot, which is the only boot that
+# matters here.
+- name: "NETWORK | Let NetworkManager own the interfaces, as Ubuntu Desktop does."
+  copy:
+    dest: /etc/netplan/99-viper-network-manager.yaml
+    owner: root
+    group: root
+    mode: '0600'
+    content: |
+      network:
+        version: 2
+        renderer: NetworkManager
+  when: ansible_virtualization_type != "docker"
+
+# With NetworkManager rendering, networkd manages nothing, and
+# systemd-networkd-wait-online then waits for an interface that will never appear. It is
+# configured with no timeout, so it sits in "activating" forever and network-online.target
+# never fires. Booting the v1.4.0 image with only the netplan change above reproduced
+# exactly that: the console stuck on "Job systemd-networkd-wait-online.service/start
+# running (52s / no limit)" and startup never completed. Disabling both takes boot to
+# 4.3 seconds with the network fully up. Ubuntu Desktop does not run networkd either.
+#
+# No state change: stopping networkd mid-build would drop the interface Packer is
+# connected over. These take effect on the next boot, when NetworkManager takes over.
+- name: "NETWORK | Stop systemd-networkd competing with NetworkManager."
+  systemd:
+    name: "{{ item }}"
+    enabled: no
+  loop:
+    - systemd-networkd.service
+    - systemd-networkd.socket
+    - systemd-networkd-wait-online.service
+  when: ansible_virtualization_type != "docker"
