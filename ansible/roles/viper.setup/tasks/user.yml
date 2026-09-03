@@ -23,19 +23,15 @@
     update_password: always
     append: yes
 
-- name: "USER | Check if SSH public key exists"
-  local_action:
-    module: stat
-    path: "{{ lookup('env','HOME') }}/.ssh/id_rsa.pub"
-  register: ssh_key_file
-  become: false
-
-- name: "USER | Set authorized key for user: {{ viper.setup.limited_account.name }}, copied from current user."
-  authorized_key:
-    user: "{{ viper.setup.limited_account.name }}"
-    state: present
-    key: "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_rsa.pub') }}"
-  when: ssh_key_file.stat.exists and ansible_virtualization_type != "docker"
+# The build used to copy ~/.ssh/id_rsa.pub from whoever ran it into the shipped
+# account's authorized_keys. That put the maintainer's personal public key into every
+# released appliance: v1.2 shipped "cfw@dm-ultra". It also made the build depend on the
+# operator having an RSA keypair, which was documented nowhere and failed the build
+# outright when they did not.
+#
+# A published appliance has no business carrying anyone's key, and sshd is disabled in
+# cleanup.sh regardless, so the key granted nothing. Removed rather than made optional:
+# anyone wanting SSH into a development build can add a key to the running machine.
 
 - name: "USER | Create user desktop dir."
   file:

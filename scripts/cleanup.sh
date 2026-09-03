@@ -42,8 +42,15 @@ sudo find /var/log -type f -name '*.gz' -delete
 sudo find /var/log -type f -regextype posix-extended -regex '.*\.[0-9]+$' -delete
 sudo find /var/log -type f -exec truncate -s 0 {} +
 
-log "Removing build SSH identity"
-sudo rm -rf /home/vagrant/.ssh
+# Every home directory, not just vagrant's. The build used to copy the operator's
+# public key into the shipped account, so /home/viper/.ssh survived into the release
+# and v1.2 went out carrying a maintainer's personal key. That task is gone, and this
+# makes sure nothing can put a key back by another route.
+log "Removing SSH identities from every account"
+sudo rm -rf /root/.ssh
+for home in /home/*; do
+  [ -d "${home}" ] && sudo rm -rf "${home}/.ssh"
+done
 sudo rm -f /etc/ssh/ssh_host_*
 
 log "Disabling sshd for the shipped appliance"
@@ -62,6 +69,19 @@ sudo rm -f /root/.bash_history /home/vagrant/.bash_history
 # Requires disk_discard = "unmap" on the Packer source.
 log "Releasing freed blocks back to the image"
 sudo fstrim -av || echo "    fstrim unavailable, image will be larger than necessary"
+
+# Prove it rather than assume it. A published appliance carrying someone's public key
+# is the kind of thing nobody notices until it is downloaded a few hundred times.
+log "Verifying no SSH keys or authorized_keys survive"
+leftover=$(sudo find /root /home /etc/skel \
+  \( -name 'authorized_keys' -o -name 'id_rsa*' -o -name 'id_ecdsa*' \
+     -o -name 'id_ed25519*' -o -name 'id_dsa*' \) -print 2>/dev/null || true)
+if [ -n "${leftover}" ]; then
+  echo "ERROR: SSH key material survived cleanup:" >&2
+  echo "${leftover}" >&2
+  exit 1
+fi
+log "  none found"
 
 log "Disk usage after cleanup"
 df -h /
