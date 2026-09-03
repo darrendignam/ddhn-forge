@@ -38,6 +38,28 @@ def installed(package, container):
     return bool(run(f"dpkg-query -W {package} 2>/dev/null", container).strip())
 
 
+def check_collisions(defaults):
+    """A package must not be in an install list and a removal list at once.
+
+    The cascade check below only asks what each removal drags out with it. It says
+    nothing about a package the build installs and then deliberately purges moments
+    later, which is a different bug with the same symptom: net-tools was in both VM
+    lists, so every VM was built without ifconfig despite net-tools being a declared
+    default. This needs no image, so it runs even when nothing is built.
+    """
+    problems = 0
+    for kind in ("docker", "vm"):
+        install = set(defaults.get(f"viper_env_apt_{kind}_defaults") or [])
+        remove = set(defaults.get(f"viper_env_apt_{kind}_remove") or [])
+        both = sorted(install & remove)
+        if both:
+            problems += 1
+            print(f"FAIL  {kind}: installed and then removed in the same build: {both}")
+    if not problems:
+        print("OK    no package is in both an install list and a removal list")
+    return problems
+
+
 def collateral(package, container):
     """Packages apt would remove in addition to the one named."""
     output = run(f"apt-get -s remove {package} 2>/dev/null", container)
@@ -60,7 +82,7 @@ def main():
         defaults["viper_env_apt_docker_defaults"]
     )
 
-    problems = 0
+    problems = check_collisions(defaults)
     checked = 0
 
     for package in sorted(remove_list):

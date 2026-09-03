@@ -36,7 +36,7 @@
     dest: /etc/timezone
   when: ansible_virtualization_type == "docker"
 
-- name: "APT | Remove unnecessary packages."
-  apt:
-    name: "{{ viper.setup.remove.apt }}"
-    state: "absent"
+# The removal used to run here as well as in prerequisites.yml. This copy ran before
+# anything had been installed and without purge or autoremove, so it was a strictly
+# weaker duplicate of the later one: two full apt transactions per build for the work
+# of one. prerequisites.yml owns the removal now.

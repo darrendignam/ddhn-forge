@@ -118,6 +118,29 @@ else
   fail "viper cannot obtain root: the appliance would ship with no admin path"
 fi
 
+# The appliance fetches nothing at run time, but a missing CA bundle is the single
+# failure that silently breaks every tool that talks to a network: rclone to cloud
+# storage, veraPDF's updater, any user script. It has been broken before, by a removal
+# list that purged openssl and took ca-certificates with it as a reverse dependency,
+# and nothing in the build noticed. Assert it rather than assume it.
+echo "==> TLS trust store"
+check_exists "ca-certificates package" /usr/share/ca-certificates
+if [ -s /etc/ssl/certs/ca-certificates.crt ]; then
+  pass "CA bundle is present and not empty"
+else
+  fail "/etc/ssl/certs/ca-certificates.crt is missing or empty: HTTPS will not verify"
+fi
+
+# An actual handshake, because a present bundle can still be unreadable or stale.
+# Distinguishes a certificate problem, which must fail the build, from the build host
+# simply having no route out, which must not.
+curl -sS --max-time 20 -o /dev/null https://github.com 2>/dev/null
+case $? in
+  0)     pass "HTTPS certificate verification works" ;;
+  6|7|28) echo "  skip  no network on the build host, certificate path not exercised" ;;
+  *)     fail "HTTPS request failed certificate verification" ;;
+esac
+
 echo
 if [ "${failures}" -gt 0 ]; then
   echo "Smoke test FAILED with ${failures} problem(s). Not publishing this image."
