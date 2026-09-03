@@ -1,14 +1,29 @@
-version: "1.2"
-release_date: "01.08.2024"
-guest_os: "Debian"
-guest_os_version: "12"
-guest_os_nickname: "Bookworm"
-droid_version: "6.7.0"
-jhove_version: "1.30.1"
-verapdf_version: "1.26.2"
-tika_version: "2.9.2"
-handbrake_version: "1.6.1"
-mediainfo_version: "24.04"
-mediaconch_version: "23.10"
+# Versions rendered into the documentation site.
+#
+# These describe the appliance the site documents. The site publishes from main, so
+# these change when a release merges, not when a branch is built.
+#
+# Every value here is taken from a built image rather than from the tool defaults, so
+# the apt-installed applications reflect what Ubuntu 24.04 actually ships.
+version: "1.4.0"
+release_date: "03.09.2026"
+guest_os: "Ubuntu"
+guest_os_version: "24.04"
+guest_os_nickname: "Noble Numbat"
+desktop: "MATE"
+desktop_theme: "Linux Mint"
+droid_version: "6.9.13"
+jhove_version: "1.34.0"
+verapdf_version: "1.30.2"
+verapdf_arlington_version: "1.31.174"
+tika_version: "3.3.2"
+fido_version: "1.6.1"
+jpylyzer_version: "2.2.1"
+odf_validator_version: "0.20-beta-1"
+openfixity_version: "0.1.1-ALPHA"
+rclone_version: "1.75.0"
+handbrake_version: "1.7.2"
+mediainfo_version: "26.05"
+mediaconch_version: "25.04"
 inkscape_version: "1.2.2"
-gimp_version: "2.10.34"
+gimp_version: "2.10.36"
