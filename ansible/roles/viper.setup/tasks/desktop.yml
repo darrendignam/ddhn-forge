@@ -338,7 +338,9 @@
       Exec=/usr/local/bin/viper-post-install.sh
       Hidden=false
       NoDisplay=true
-      X-GNOME-Autostart-enabled=true
-      X-GNOME-Autostart-Delay=10
+      # mate-session 1.26 reads X-MATE-Autostart-Delay and has no concept of the
+      # GNOME keys, so the delay this file asked for was silently discarded and the
+      # script ran the instant the session came up.
+      X-MATE-Autostart-Delay=10
       StartupNotify=false
   when: ansible_virtualization_type == "docker"

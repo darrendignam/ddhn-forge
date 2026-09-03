@@ -49,14 +49,9 @@
     owner: "{{ viper.setup.limited_account.name }}"
     group: "{{ viper.setup.limited_account.name }}"
 
-- name: "USER | Mark GNOME initial setup as completed."
-  file:
-    path: "{{ viper.setup.limited_account.home }}/.config/gnome-initial-setup-done"
-    state: touch
-    mode: '0644'
-    owner: "{{ viper.setup.limited_account.name }}"
-    group: "{{ viper.setup.limited_account.name }}"
-  when: ansible_virtualization_type != "docker"
+# gnome-initial-setup-done was touched here to stop GNOME's first run wizard. MATE has
+# no equivalent wizard and never reads that file, so the task was doing nothing on every
+# VM build since the move to MATE.
 
 - name: "USER | Create autostart directory for user."
   file:

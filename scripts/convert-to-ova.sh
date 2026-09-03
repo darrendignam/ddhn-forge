@@ -106,10 +106,16 @@ cat > "${FINAL_DIR}/${VM_NAME}.ovf" << EOF
       <ProductUrl>https://viper.openpreservation.org</ProductUrl>
       <VendorUrl>https://openpreservation.org</VendorUrl>
     </ProductSection>
-    <OperatingSystemSection ovf:id="96">
+    <!-- 94 is the CIM identifier VirtualBox writes for Ubuntu_64, confirmed by
+         exporting a throwaway VM and reading the result. Debian_64 is 96, which is
+         what this descriptor carried while the appliance was still Debian based.
+         Ubuntu24_LTS_64 is deliberately not used: VirtualBox has no CIM slot for it
+         and falls back to 102 (Other_64), which tells a non-VirtualBox importer
+         less than the generic Ubuntu type does. -->
+    <OperatingSystemSection ovf:id="94">
       <Info>The kind of installed guest operating system</Info>
-      <Description>Debian_64</Description>
-      <vbox:OSType ovf:required="false">Debian_64</vbox:OSType>
+      <Description>Ubuntu_64</Description>
+      <vbox:OSType ovf:required="false">Ubuntu_64</vbox:OSType>
     </OperatingSystemSection>
     <VirtualHardwareSection>
       <Info>Virtual hardware requirements for a virtual machine</Info>
@@ -165,7 +171,7 @@ cat > "${FINAL_DIR}/${VM_NAME}.ovf" << EOF
         <rasd:ResourceType>10</rasd:ResourceType>
       </Item>
     </VirtualHardwareSection>
-    <vbox:Machine ovf:required="false" version="1.19-linux" uuid="{${VM_UUID}}" name="${VM_NAME}" OSType="Debian_64">
+    <vbox:Machine ovf:required="false" version="1.19-linux" uuid="{${VM_UUID}}" name="${VM_NAME}" OSType="Ubuntu_64">
       <ovf:Info>Complete VirtualBox machine configuration in VirtualBox format</ovf:Info>
       <Hardware>
         <CPU count="${CPUS}">

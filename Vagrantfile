@@ -12,7 +12,9 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "debian/bookworm64"
+  # Canonical stopped publishing official boxes after focal, so there is no
+  # ubuntu/noble64. Bento is the maintained alternative and tracks 24.04.
+  config.vm.box = "bento/ubuntu-24.04"
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
