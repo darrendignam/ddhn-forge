@@ -14,7 +14,6 @@ mint_keyring_url: "http://packages.linuxmint.com/pool/main/l/linuxmint-keyring/l
 viper_env_apt_docker_defaults:
   - "git"
   - "apt-transport-https"
-  # SSL/TLS certificate authority certificates for HTTPS
   - "ca-certificates"
   - "psmisc"
   - "net-tools"
@@ -127,9 +126,10 @@ viper_desktop_folders:
 viper_env_apt_vm_defaults:
   # Source control
   - "git"
-  # Debian lacks the ability to download apt over HTTPS
+  # Transitional and empty since Debian 10 and Ubuntu 20.04: apt speaks HTTPS
+  # natively via libapt-pkg. Kept only so an inventory pinning it does not break;
+  # HTTPS actually depends on ca-certificates below.
   - "apt-transport-https"
-  # SSL/TLS certificate authority certificates for HTTPS
   - "ca-certificates"
   # Install some helper network tools
   - "psmisc"

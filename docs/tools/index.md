@@ -72,12 +72,12 @@ An extensible, open source software project consisting of an implementation chec
 
 ## ![Inkscape icon](../assets/img/icons/inkscape.png "Inkscape icon") Inkscape v{{ site.data.vars.inkscape_version }}
 
-Open source image manipulation software bundled with Debian.
+Open source vector graphics editor, installed from the {{ site.data.vars.guest_os }} archive.
 
 - Homepage: <https://inkscape.org/>
 
-## ![GIMP icon](../assets/img/icons/gimp.png "Inkscape icon") GIMP (GNU Image Manipulation Program) v{{ site.data.vars.gimp_version }}
+## ![GIMP icon](../assets/img/icons/gimp.png "GIMP icon") GIMP (GNU Image Manipulation Program) v{{ site.data.vars.gimp_version }}
 
-Open source image manipulation software bundled with Debian.
+Open source raster image editor, installed from the {{ site.data.vars.guest_os }} archive.
 
 - Homepage: <https://www.gimp.org/>

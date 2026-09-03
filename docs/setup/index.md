@@ -8,7 +8,7 @@ This guide is intended to help you install VirtualBox then download and import t
 
 ## About ViPER
 
-ViPER is an easy-to-install virtual machine running popular open source preservation tools with graphical user interfaces. It was created by the [Open Preservation Foundation](https://openpreservation.org/) (OPF) and funded by the [Dutch Digital Heritage Network](https://www.netwerkdigitaalerfgoed.nl/en/) (DDHN). ViPER is now maintained by the OPF and the [National Archives of the Netherlands](https://www.nationaalarchief.nl/). [Oracle VirtualBox](https://www.virtualbox.org/manual) that provides the basis for cross platform virtualisation and makes use of [Gnome](https://www.gnome.org/gnome-3/) that provides the default desktop environment.
+ViPER is an easy-to-install virtual machine running popular open source preservation tools with graphical user interfaces. It was created by the [Open Preservation Foundation](https://openpreservation.org/) (OPF) and funded by the [Dutch Digital Heritage Network](https://www.netwerkdigitaalerfgoed.nl/en/) (DDHN). ViPER is now maintained by the OPF and the [National Archives of the Netherlands](https://www.nationaalarchief.nl/). [Oracle VirtualBox](https://www.virtualbox.org/manual) provides the basis for cross platform virtualisation, and the desktop environment is [{{ site.data.vars.desktop }}](https://mate-desktop.org/) themed with [{{ site.data.vars.desktop_theme }}](https://linuxmint.com/).
 
 ## Pre reqs
 

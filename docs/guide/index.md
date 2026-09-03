@@ -14,19 +14,19 @@ Note the VirtualBox Manager is also used for managing/configuring VirtualBox set
 
 ## Using ViPER
 
-The ViPER default desktop environment is GNOME based. For users unfamiliar with GNOME the simple user guide can be found via the following link: [GNOME User guide]( https://help.gnome.org/users/gnome-help/stable/shell-introduction.html.en). The visual guide provides an overview of the Activities menu that is accessed via the top left of the ViPER display, this manages access to your windows and applications. When enabled the vertical panel provides access to the DP tools, files as well access to:
+The ViPER desktop environment is [{{ site.data.vars.desktop }}](https://mate-desktop.org/), themed with [{{ site.data.vars.desktop_theme }}](https://linuxmint.com/). It uses a traditional desktop layout, so if you have used Windows or an earlier Linux desktop it should already be familiar: a menu button opens the applications menu, and open windows appear in a taskbar.
 
-- Firefox
-- GNOME help
-- GNOME terminal - this  terminal emulator and has been set up to provide access to the command line environment.
+The applications menu is the Linux Mint menu. Its **Favourites** pane lists the ViPER preservation tools, so every tool is two clicks away without hunting through categories. The same menu holds the full application list, a search box, and the logout and shutdown controls.
 
-To access and manage the system settings on your desktop use the menu on the top right of the screen. To access general settings select the top right down arrow, there are 3 selection symbols:
+The preservation tools also have icons on the desktop. Double click one to launch it.
 
-- The right side power off symbol this should be used for a graceful shut down
-- The padlock symbol locks the application, a vagrant password is needed to reactivate
-- The left side symbol provides general settings access.
+A terminal is available from the menu. Every bundled tool has a command line entry point on the `PATH`, and the shell is preconfigured with completion, syntax highlighting and a seeded history of worked ViPER examples, so typing a tool name and pressing the up arrow shows you real invocations. See the [Command Line Reference](../tools/cli.md) for the full set.
 
-Further details can be found in the GNOME guide.
+### Signing in and shutting down
+
+The machine logs in automatically as `viper`. That account has a **blank password**: where something asks for one, such as `sudo` or unlocking the screen, press Enter without typing anything. It is in the `sudo` group so that you can install your own tools.
+
+Shut down from the applications menu using **Quit**, and choose **Shut Down**. Prefer this to closing the VirtualBox window, which is the equivalent of pulling the power cable.
 
 ### File Sharing
 

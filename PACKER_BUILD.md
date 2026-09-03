@@ -33,14 +33,14 @@ It defaults to `0.0.0-dev` for local work.
 
 ```bash
 # With a GUI, useful when debugging the preseed
-packer build -var 'version=1.3.0' viper.pkr.hcl
+packer build -var 'version=1.4.0' viper.pkr.hcl
 
 # Headless, as CI runs it
-packer build -var 'version=1.3.0' -var 'headless=true' viper.pkr.hcl
+packer build -var 'version=1.4.0' -var 'headless=true' viper.pkr.hcl
 
 # Larger machine
 packer build \
-  -var 'version=1.3.0' \
+  -var 'version=1.4.0' \
   -var 'cpus=4' \
   -var 'memory=8192' \
   -var 'headless=true' \
@@ -53,7 +53,7 @@ to build somewhere with more room.
 ## Converting to OVA
 
 ```bash
-./scripts/convert-to-ova.sh viper-1.3.0 output-qemu output
+./scripts/convert-to-ova.sh viper-1.4.0 output-qemu output
 ```
 
 All three arguments are optional. With no arguments the script picks up the only
@@ -63,7 +63,8 @@ descriptor. The disk capacity is read from the image itself rather than assumed.
 
 ## What the build does
 
-1. Packer downloads the Debian ISO and installs it unattended via `http/preseed.cfg`.
+1. Packer downloads the Ubuntu 24.04 ISO and installs it unattended via the
+   subiquity autoinstall description in `http/user-data`.
 2. `scripts/install-guest-additions.sh` adds the VirtualBox guest additions.
 3. Ansible provisions the `viper.setup` and `viper.tools` roles.
 4. `scripts/smoke-test.sh` asserts the bundled tools actually run. A failure here

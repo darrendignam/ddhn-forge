@@ -449,7 +449,8 @@ jobs:
 
             ## Specification
 
-            - OS: Debian 12 (Bookworm)
+            - OS: Ubuntu 24.04 LTS (Noble Numbat)
+            - Desktop: MATE, themed with Linux Mint's Mint-Y
             - CPUs: ${{ env.VM_CPUS }}
             - Memory: ${{ env.VM_MEMORY }} MB
             - Disk: 50 GB (sparse, grows as used)
