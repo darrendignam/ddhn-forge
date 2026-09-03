@@ -15,9 +15,12 @@
     shell: "/bin/bash"
     # ViPER is a research environment, so users have to be able to install their own
     # tools. This is the only administrative path on the appliance: the build account
-    # is locked during cleanup and root has no password. sudo prompts, and the blank
-    # password satisfies it via the nullok that Ubuntu's common-auth ships by
-    # default. smoke-test.sh proves that works rather than trusting it.
+    # is locked during cleanup and root has no password.
+    #
+    # The account password is what stands between a visitor and root. Until v1.4.0 it
+    # was empty, and Ubuntu's nullok in common-auth accepted that, so sudo granted root
+    # to anyone who pressed Enter. smoke-test.sh now asserts an empty password is
+    # rejected, since a silently reverted password looks exactly like the old bug.
     groups: "vboxsf,sudo"
     password: "{{ viper.setup.limited_account.password }}"
     update_password: always
@@ -37,6 +40,25 @@
 # disabled. That was wrong. cleanup.sh disabled ssh.service while Ubuntu 24.04
 # socket-activates sshd through ssh.socket, so the shipped v1.4.0 image was listening on
 # 0.0.0.0:22 and accepting logins. Both units are disabled now.
+
+# The webtop base image ships "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" in /etc/sudoers, so
+# abc gets root with no prompt at all and setting a password on the account changes
+# nothing. Ubuntu's own default is a password prompt, which is what the VM gets, so this
+# brings the container back in line rather than inventing a new policy.
+- name: "DOCKER | Require a password for sudo, as Ubuntu does by default."
+  lineinfile:
+    path: /etc/sudoers
+    regexp: '^%sudo\s'
+    line: '%sudo	ALL=(ALL:ALL) ALL'
+    validate: 'visudo -cf %s'
+  when: ansible_virtualization_type == "docker"
+
+- name: "DOCKER | Give the container desktop account the same password as the VM."
+  user:
+    name: "abc"
+    password: "{{ viper.setup.limited_account.password }}"
+    update_password: always
+  when: ansible_virtualization_type == "docker"
 
 - name: "USER | Create user desktop dir."
   file:

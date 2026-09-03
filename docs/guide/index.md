@@ -24,7 +24,9 @@ A terminal is available from the menu. Every bundled tool has a command line ent
 
 ### Signing in and shutting down
 
-The machine logs in automatically as `viper`. That account has a **blank password**: where something asks for one, such as `sudo` or unlocking the screen, press Enter without typing anything. It is in the `sudo` group so that you can install your own tools.
+The machine logs in automatically as `viper`, so you will not normally be asked to sign in. The account is in the `sudo` group so that you can install your own tools, and `sudo` will ask for the account password. That password is supplied with the machine rather than published here; ask the Open Preservation Foundation if you do not have it.
+
+It is there to stop an accidental administrative command, not to secure the machine. Anyone with access to the console, or to a copy of the disk image, effectively has root.
 
 Shut down from the applications menu using **Quit**, and choose **Shut Down**. Prefer this to closing the VirtualBox window, which is the equivalent of pulling the power cable.
 

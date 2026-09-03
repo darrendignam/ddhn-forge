@@ -39,9 +39,11 @@ The download takes some time as the files are several gigabytes.
 
 ### Logging onto the machine
 
-Account login should be automatic. Regardless the account name is `viper` with a blank password.
+Account login should be automatic, so you will not normally be asked to sign in. The account name is `viper`.
 
-The `viper` account can administer the machine, so you can install your own tools and packages. `sudo` asks for a password; press Enter, as the account has none.
+The `viper` account can administer the machine, so you can install your own tools and packages. `sudo` asks for a password. The password is short and is supplied with the machine rather than published here; ask the Open Preservation Foundation if you do not have it.
+
+It is a convenience, not a security boundary. Anyone with access to the machine's console or its disk image should be treated as having root.
 
 There is no remote access account. SSH is installed but disabled, and the image ships with no SSH host keys, so enabling it generates a set unique to your installation.
 

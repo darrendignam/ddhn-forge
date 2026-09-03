@@ -118,16 +118,33 @@ done
 echo "==> Tool manifest"
 check_exists "manifest" /usr/local/share/viper/manifest.json
 
-# The viper account is the only way to root on the shipped appliance: the build
-# account is locked during cleanup and root has no password. That rests on Ubuntu
-# shipping nullok in common-auth, so prove it here rather than discover it after
-# the image is published. -k clears any cached credentials so the password path is
-# genuinely exercised.
+# The viper account is the only way to root on the shipped appliance, and it must be
+# behind a password. It shipped with an empty one, which Ubuntu's nullok accepted, so
+# sudo handed out root to anyone who pressed Enter.
+#
+# Asserted by rejection rather than by logging in, so the password itself stays out of
+# the repository. An empty password succeeding is the exact regression this guards
+# against, and it is what a reverted or unset password looks like.
 echo "==> Administrative access"
-if sudo -u viper -- sh -c 'echo "" | sudo -S -k true' >/dev/null 2>&1; then
-  pass "viper can obtain root via sudo"
+if [ "$(passwd -S viper | awk '{print $2}')" = "P" ]; then
+  pass "viper has a password set"
 else
-  fail "viper cannot obtain root: the appliance would ship with no admin path"
+  fail "viper has no usable password: sudo would grant root on an empty prompt"
+fi
+
+if sudo -u viper -- sh -c 'echo "" | sudo -S -k true' >/dev/null 2>&1; then
+  fail "an empty password obtained root: the account password did not take"
+else
+  pass "an empty password is rejected by sudo"
+fi
+
+# Still needs to be reachable with the real password, or the appliance has no admin
+# path at all. sudoers policy is what decides that, so check the policy rather than
+# authenticate.
+if sudo -l -U viper 2>/dev/null | grep -q '(ALL'; then
+  pass "viper retains a sudo route to root"
+else
+  fail "viper has no sudo rule: the appliance would ship with no admin path"
 fi
 
 # The appliance fetches nothing at run time, but a missing CA bundle is the single

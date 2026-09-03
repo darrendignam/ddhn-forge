@@ -360,7 +360,17 @@ viper:
     open_ports: "{{ viper_env_open_ports | default([]) }}"
     limited_account:
       name: "{{ viper_env_user_name | default('viper') }}"
-      password: ""
+      # SHA-512 crypt. The appliance used to ship this account with an empty password,
+      # which Ubuntu's nullok in common-auth accepted, so sudo handed out root to anyone
+      # who pressed Enter. A guest at the machine could wipe it by accident.
+      #
+      # The plaintext is deliberately not committed. It is short and guessable by design
+      # and OPF distributes it to users, so this is a speed bump against accidental
+      # damage rather than a security boundary: the hash is public and trivially
+      # cracked. Treat physical or console access to a ViPER machine as root access.
+      #
+      # To change it:  openssl passwd -6 'your-password'
+      password: "$6$WKCDufUtcJPIZ73E$lRcWKArlQQBf22m.cyThSjF8xcCLRj6nIVLTQDqGzYw7stATF0WkDK3KFYxEENvFIpAh8r/J0CFITM2BFIFkj."
       home: "{{ viper_env_user_home | default('/home/viper') }}"
     default_locale: en_GB.UTF-8
     locales:
