@@ -34,7 +34,11 @@ sudo rm -rf /var/lib/apt/lists/*
 # Named explicitly rather than clearing all of /tmp: Packer is running this very
 # script from /tmp, and deleting it out from under bash breaks the rest of the run.
 log "Removing provisioning leftovers"
-sudo rm -rf /tmp/vera-installer
+# Glob, not the single veraPDF path this used to name. verapdf-arlington.yml unpacks its
+# own izpack tree into /tmp/vera-arlington-installer and nothing removed it, so it stayed
+# allocated through fstrim and shipped inside the image. /tmp is cleared at boot, so users
+# never saw it; they just downloaded it.
+sudo rm -rf /tmp/vera-installer /tmp/vera-*-installer
 sudo rm -f /tmp/*.jar /tmp/*.zip /tmp/*.deb /tmp/*.xml
 
 log "Truncating logs"
