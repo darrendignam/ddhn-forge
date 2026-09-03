@@ -1,9 +1,14 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Toggle System Monitor
-Comment=Show/Hide Conky system monitor
+Name=ViPER System Monitor
+Comment=Show or hide the docked system monitor, sized to the current screen
 Exec=/usr/local/bin/toggle-conky.sh
 Icon=utilities-system-monitor
 Terminal=false
 Categories=System;Monitor;
+Actions=Windowed;
+
+[Desktop Action Windowed]
+Name=Show as a movable window
+Exec=/usr/local/bin/toggle-conky.sh --window
