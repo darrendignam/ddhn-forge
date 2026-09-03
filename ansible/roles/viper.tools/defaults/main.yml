@@ -54,11 +54,22 @@ droid_patch: "13"
 droid_version: "{{ droid_major }}.{{ droid_minor }}.{{ droid_patch }}"
 
 # Apache Tika version details
-# Held at the 2.x line deliberately. Tika 3.x is a major version and this image
-# already carries four pre-release tools; adding an untested major bump on top
-# makes a failure hard to attribute. Revisit once the rest has settled.
-tika_major: "2"
-tika_minor: "9"
+#
+# The 2.x line was held while the platform was in flux, on the grounds that a major
+# version bump on top of four pre-release tools would make any failure hard to
+# attribute. That has now settled on Ubuntu 24.04 and Java 21, so the hold is lifted.
+#
+# Not 4.0.0: it is released and tagged, but publishes no tika-app fat jar, which is
+# what the installer and both the CLI and GUI wrappers here depend on. Moving to 4.x
+# means repackaging how Tika is installed, not a version bump.
+#
+# 3.x needs Java 11 (class file version 55) against the Java 21 runtime, and keeps
+# --gui and the --detect, --text and --metadata flags this image documents.
+#
+# This is a major version, so parser behaviour and metadata field names can differ
+# from 2.9.2. Worth a changelog note: it can change a user's characterisation output.
+tika_major: "3"
+tika_minor: "3"
 tika_patch: "2"
 tika_version: "{{ tika_major }}.{{ tika_minor }}.{{ tika_patch }}"
 
