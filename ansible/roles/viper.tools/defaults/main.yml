@@ -11,6 +11,11 @@ viper_icons_share: "{{ viper_usr_share }}/icons"
 
 # Account name
 viper_account_name: "{{ viper_env_user_name | default('viper') }}"
+# Derived exactly as viper.setup derives limited_account.home, because the desktop
+# artifacts have to land in the home directory that role actually created. These paths
+# used to be hardcoded to /home/<name>, so overriding viper_env_user_home built the
+# account in one place and every launcher in another, with no error.
+viper_account_home: "{{ viper_env_user_home | default('/home/' + viper_account_name) }}"
 
 # Tools installed via Debian package manager
 viper_debian_tools:

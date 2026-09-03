@@ -14,7 +14,7 @@
 
 - name: "DESKTOP STAGING | Copy the tool launchers out of the /config volume."
   copy:
-    src: "/home/{{ viper_account_name }}/Desktop/"
+    src: "{{ viper_account_home }}/Desktop/"
     dest: "/usr/local/share/viper/desktop/"
     owner: root
     group: root

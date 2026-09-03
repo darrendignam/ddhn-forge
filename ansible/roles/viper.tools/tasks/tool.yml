@@ -26,7 +26,7 @@
 - name: "TOOL {{ item.name }} | Create user desktop file from template (VM)"
   template:
     src: "usr/share/applications/template.desktop"
-    dest: "/home/{{ viper_account_name }}/Desktop/{{ item.name }}.desktop"
+    dest: "{{ viper_account_home }}/Desktop/{{ item.name }}.desktop"
     owner: "{{ viper_account_name }}"
     group: "{{ viper_account_name }}"
     mode: a+x

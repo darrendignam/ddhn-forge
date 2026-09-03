@@ -14,7 +14,7 @@
 
 - name: "DESKTOP TRUST | Find the tool launchers on the desktop."
   find:
-    paths: "/home/{{ viper_account_name }}/Desktop"
+    paths: "{{ viper_account_home }}/Desktop"
     patterns: "*.desktop"
   register: viper_desktop_launchers
 
@@ -22,7 +22,7 @@
   assert:
     that: "viper_desktop_launchers.files | length > 0"
     fail_msg: >-
-      No .desktop launchers found in /home/{{ viper_account_name }}/Desktop.
+      No .desktop launchers found in {{ viper_account_home }}/Desktop.
       Either the tool tasks did not run or this is running too early again.
 
 - name: "DESKTOP TRUST | Mark the tool launchers as trusted for Caja."

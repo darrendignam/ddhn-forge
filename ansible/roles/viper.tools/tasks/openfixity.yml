@@ -62,7 +62,7 @@
     mode: a+x
     remote_src: yes
   loop:
-    - { dest: "/home/{{ viper_account_name }}/Desktop/{{ openfixity_desktop_id }}.desktop",
+    - { dest: "{{ viper_account_home }}/Desktop/{{ openfixity_desktop_id }}.desktop",
         owner: "{{ viper_account_name }}", docker_only: false }
     - { dest: "/config/Desktop/{{ openfixity_desktop_id }}.desktop",
         owner: "abc", docker_only: true }

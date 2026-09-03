@@ -11,7 +11,7 @@
 - name: "Debian Tools | Add desktop icons for Debian tools (VM)."
   copy:
     src: "/usr/share/applications/{{ item }}.desktop"
-    dest: "/home/{{ viper_account_name }}/Desktop/{{ item }}.desktop"
+    dest: "{{ viper_account_home }}/Desktop/{{ item }}.desktop"
     owner: "{{ viper_account_name }}"
     group: "{{ viper_account_name }}"
     mode: preserve
@@ -20,7 +20,7 @@
 
 - name: "Debian Tools | Set executable permissions for Desktop icons (VM)."
   ansible.builtin.file:
-    path: "/home/{{ viper_account_name }}/Desktop/{{ item }}.desktop"
+    path: "{{ viper_account_home }}/Desktop/{{ item }}.desktop"
     state: file
     mode: "u+x,g+x,o+x"
   with_items: "{{ viper_debian_icons }}"
