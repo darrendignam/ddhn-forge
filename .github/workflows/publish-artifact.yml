@@ -42,6 +42,15 @@ jobs:
       actions: read
 
     steps:
+      # The upload budget is measured from here rather than from the start of the
+      # upload step. Downloading a split multi-gigabyte artifact, reassembling it and
+      # verifying its checksum can take half an hour, and a deadline computed after all
+      # that allowed the full 350 minutes on top, so the job could be killed at the
+      # ceiling mid-transfer. Which is the exact failure the budget exists to avoid.
+      - name: Record job start
+        id: clock
+        run: echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Make room for the image
         run: |
           sudo mkdir -p /mnt/publish
@@ -74,7 +83,11 @@ jobs:
           # Parsed key by key rather than sourced, so the artifact cannot introduce
           # anything the build did not put there.
           for key in FILENAME FILE_TYPE SHA256 MD5 REPO_SAFE VERSION_SAFE; do
-            value=$(grep -E "^${key}=" "${MANIFEST}" | head -1 | cut -d= -f2-)
+            # `|| true` because the pipeline returns grep's 1 under pipefail when the
+            # key is absent, and a failed command substitution ends the step under
+            # set -e. That made the message below unreachable in the one case it
+            # exists for, leaving a bare non-zero exit and no diagnostic.
+            value=$(grep -E "^${key}=" "${MANIFEST}" | head -1 | cut -d= -f2- || true)
             if [ -z "${value}" ]; then
               echo "::error::${key} missing from manifest.env"
               exit 1
@@ -111,6 +124,7 @@ jobs:
           SHA256: ${{ steps.manifest.outputs.sha256 }}
           MD5: ${{ steps.manifest.outputs.md5 }}
           SIZE: ${{ steps.reassemble.outputs.size }}
+          JOB_STARTED: ${{ steps.clock.outputs.started }}
         run: |
           set -uo pipefail
           cd /mnt/publish
@@ -121,7 +135,11 @@ jobs:
           # transfer has to start again from zero. Budget the remaining job time so
           # we never begin an attempt we cannot finish, and report clearly instead
           # of being killed at the job ceiling.
-          DEADLINE=$(( $(date +%s) + 350 * 60 - 300 ))
+          #
+          # Anchored on the job's own start time, minus a 5 minute margin to report in.
+          DEADLINE=$(( JOB_STARTED + 350 * 60 - 300 ))
+          echo "spent $(( $(date +%s) - JOB_STARTED ))s before the upload; \
+            $(( DEADLINE - $(date +%s) ))s of budget remains"
 
           attempt=1
           max_attempts=3
