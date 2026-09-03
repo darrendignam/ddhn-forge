@@ -6,6 +6,10 @@ title: ViPER Tools
 
 A list of the bundled tools with references to online resources.
 
+Every tool here also has a command line interface. See the
+[Command Line Reference](cli.md) for the flags, worked examples and preservation
+workflow recipes, including converting PDF to PDF/A and validating the result.
+
 ## ![DROID icon](../assets/img/icons/droid.png "DROID icon") DROID (Digital Record Object Identification) v{{ site.data.vars.droid_version }}
 
 A file format identification tool developed and maintained by The National Archives of the UK.
