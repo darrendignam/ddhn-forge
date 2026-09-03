@@ -215,6 +215,10 @@ viper_env_apt_vm_defaults:
   - "zsh"
   - "zsh-syntax-highlighting"
   - "zsh-autosuggestions"
+  # The ViPER system panel. toggle-conky.sh is written for both targets and picks its
+  # working volume accordingly, but conky was only ever installed in the container, so
+  # the released VM had no panel, no toggle and no menu entry.
+  - "conky-all"
   - "grub-common"
 
 # Use Docker defaults if running in Docker, otherwise use VM defaults

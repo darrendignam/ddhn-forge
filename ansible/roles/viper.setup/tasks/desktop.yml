@@ -185,26 +185,10 @@
     label: "{{ item.name }}"
   when: ansible_virtualization_type != "docker"
 
-# Caja refuses to run a desktop launcher it does not trust, showing "Untrusted application
-# launcher" instead of the tool. The trust flag is per-file user metadata, so it has to be
-# set as the ViPER account, after the .desktop files exist. The container equivalent runs
-# from post-install.sh, because there the desktop lives on the /config volume.
-- name: "Desktop | Find the tool launchers on the desktop."
-  find:
-    paths: "/home/{{ viper.setup.limited_account.name }}/Desktop"
-    patterns: "*.desktop"
-  register: viper_desktop_launchers
-  when: ansible_virtualization_type != "docker"
-
-- name: "Desktop | Mark the tool launchers as trusted for Caja."
-  become: true
-  become_user: "{{ viper.setup.limited_account.name }}"
-  command: "gio set {{ item.path }} metadata::caja-trusted-launcher true"
-  loop: "{{ viper_desktop_launchers.files | default([]) }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  changed_when: false
-  when: ansible_virtualization_type != "docker"
+# The Caja trust marking for the tool launchers used to sit here. It cannot: viper.setup
+# runs before viper.tools, so it scanned a Desktop directory that user.yml had created
+# empty moments earlier and marked nothing, on every build. It now lives in
+# viper.tools/tasks/desktop-trust.yml, after the launchers exist.
 
 # The container desktop lives on the /config volume, which is replaced at run time, so
 # its shortcuts are made by post-install.sh instead. It reads the list from here rather
@@ -231,38 +215,57 @@
       {% endfor %}
   when: ansible_virtualization_type == "docker"
 
-# Container-only configuration below. The container shares the desktop settings above and
-# differs only in how the session is started and how /config is populated at run time.
-- name: "DOCKER | Create Conky config directory."
+# The ViPER system panel, on both targets. These were gated to the container, so the
+# released VM shipped without conky, without the toggle script and without the menu
+# entry, even though toggle-conky.sh branches on /config precisely so it works on both.
+- name: "Desktop | Create the Conky configuration directory."
   file:
     path: "/usr/local/share/conky"
     state: directory
-  when: ansible_virtualization_type == "docker"
 
-- name: "DOCKER | Copy Conky system monitor config to system location."
+- name: "Desktop | Install the ViPER system panel template."
   copy:
     src: "files/conky.conf"
     dest: "/usr/local/share/conky/conky.conf"
     mode: '0644'
-  when: ansible_virtualization_type == "docker"
 
-- name: "DOCKER | Copy Conky toggle script to system bin."
+- name: "Desktop | Install the system panel toggle."
   copy:
     src: "files/toggle-conky.sh"
     dest: "/usr/local/bin/toggle-conky.sh"
     owner: "root"
     group: "root"
     mode: '0755'
-  when: ansible_virtualization_type == "docker"
 
-- name: "DOCKER | Copy Conky toggle desktop file to applications menu."
+- name: "Desktop | Add the system panel to the applications menu."
   copy:
     src: "files/toggle-conky.desktop"
     dest: "/usr/share/applications/toggle-conky.desktop"
     owner: "root"
     group: "root"
     mode: '0644'
-  when: ansible_virtualization_type == "docker"
+
+# The container starts the panel from post-install.sh once the /config volume is
+# populated. The VM has no such step, so it gets an ordinary autostart entry. The delay
+# lets MATE finish drawing the panel, which toggle-conky.sh measures to size the sidebar.
+- name: "Desktop | Start the system panel with the VM session."
+  copy:
+    dest: "/etc/xdg/autostart/viper-system-panel.desktop"
+    owner: "root"
+    group: "root"
+    mode: '0644'
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name=ViPER System Panel
+      Exec=/usr/local/bin/toggle-conky.sh
+      NoDisplay=true
+      X-MATE-Autostart-Delay=8
+      StartupNotify=false
+  when: ansible_virtualization_type != "docker"
+
+# Container-only configuration below. The container shares the desktop settings above and
+# differs only in how the session is started and how /config is populated at run time.
 
 # Note: /config is a volume mount, so we cannot create files there during build
 # All /config configuration is handled by the post-install script at runtime
