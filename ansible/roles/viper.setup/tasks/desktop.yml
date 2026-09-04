@@ -298,7 +298,15 @@
       export XDG_SESSION_DESKTOP=mate
       export DESKTOP_SESSION=mate
 
-      dbus-launch --exit-with-session /usr/bin/mate-session > /dev/null 2>&1
+      # dbus-run-session, not dbus-launch --exit-with-session. svc-de depends on
+      # init-services and svc-nginx but not on svc-kasmvnc, so this can run before Xvnc
+      # accepts connections, and --exit-with-session ties the bus to its own X
+      # connection: with no X it prints an address and then tears the daemon down,
+      # unlinking the socket. MATE was left addressing a socket that had already gone
+      # and the session died behind a "Could not connect to session bus" dialog, about
+      # one boot in nine. dbus-run-session ties the bus to the child process instead,
+      # so there is no X dependency and no race.
+      dbus-run-session -- /usr/bin/mate-session > /dev/null 2>&1
   when: ansible_virtualization_type == "docker"
 
 # Browser tab favicon and the KasmVNC client icon. This base image serves the client
