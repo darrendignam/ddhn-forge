@@ -126,7 +126,10 @@ check_exists "manifest" /usr/local/share/viper/manifest.json
 # the repository. An empty password succeeding is the exact regression this guards
 # against, and it is what a reverted or unset password looks like.
 echo "==> Administrative access"
-if [ "$(passwd -S viper | awk '{print $2}')" = "P" ]; then
+# sudo, because passwd -S on another account is root only. Without it the command
+# writes nothing to stdout and the field below reads as though no password were set,
+# which failed a build on a machine that was configured correctly.
+if [ "$(sudo passwd -S viper | awk '{print $2}')" = "P" ]; then
   pass "viper has a password set"
 else
   fail "viper has no usable password: sudo would grant root on an empty prompt"
