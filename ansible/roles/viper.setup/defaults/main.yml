@@ -143,6 +143,10 @@ viper_env_apt_vm_defaults:
   # Install some helper network tools
   - "psmisc"
   - "net-tools"
+  # setfacl, which Ansible needs to hand a temporary file to an unprivileged become_user.
+  # Without it the build reaches viper.tools desktop-trust, fails to grant the account
+  # access, and dies twenty minutes in with "chmod: invalid mode: A+user:viper:rx:allow".
+  - "acl"
   # Provides `dconf update`, which compiles the system-wide desktop defaults
   - "dconf-cli"
   # Zip and unzip are always handy
