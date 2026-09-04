@@ -282,12 +282,80 @@ jobs:
           sudo chown "$(id -u):$(id -g)" /mnt/packer
           df -h / /mnt
 
+      # Packer's ISO getter makes one attempt, cannot resume, and gives up at a
+      # hardcoded thirty minutes with no way to tune it. One stalled connection to
+      # releases.ubuntu.com therefore costs the whole job, which is what happened to
+      # run 33846528085 on a fetch that had taken 45 seconds twice earlier that day.
+      # Fetching it here instead buys retries, resume, and an abort after a minute of
+      # no progress rather than a connection held open until the deadline. The URL and
+      # the checksum are read back out of the template, so bumping the release stays a
+      # one line change there, and Packer still verifies the checksum itself.
+      - name: Resolve the installer ISO
+        id: iso
+        run: |
+          set -euo pipefail
+          url=$(packer inspect viper.pkr.hcl | sed -n 's/^var\.iso_url: "\(.*\)"$/\1/p')
+          checksum=$(packer inspect viper.pkr.hcl | sed -n 's/^var\.iso_checksum: "\(.*\)"$/\1/p')
+          if [ -z "${url}" ] || [ "${checksum#sha256:}" = "${checksum}" ]; then
+            echo "::error::viper.pkr.hcl did not yield an iso_url and a sha256 iso_checksum"
+            exit 1
+          fi
+          {
+            echo "url=${url}"
+            echo "sha256=${checksum#sha256:}"
+            echo "path=/mnt/packer/iso/$(basename "${url}")"
+          } >> "${GITHUB_OUTPUT}"
+
+      # restore and save rather than the combined cache action, which saves from a post
+      # step gated on the job succeeding. A build that fails after the download would
+      # discard the ISO and make the next attempt fetch it again, which is exactly the
+      # case this is here to spare.
+      - name: Restore the installer ISO
+        id: iso_cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /mnt/packer/iso
+          key: iso-${{ steps.iso.outputs.sha256 }}
+
+      - name: Fetch the installer ISO
+        env:
+          ISO_URL: ${{ steps.iso.outputs.url }}
+          ISO_SHA256: ${{ steps.iso.outputs.sha256 }}
+          ISO_PATH: ${{ steps.iso.outputs.path }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "${ISO_PATH}")"
+          if printf '%s  %s' "${ISO_SHA256}" "${ISO_PATH}" | sha256sum --check --status 2>/dev/null; then
+            echo "Restored from cache and the checksum matches."
+          else
+            rm -f "${ISO_PATH}"
+            # --speed-limit with --speed-time abandons a transfer that has stalled, so
+            # --retry picks it up again from where it stopped. Without them a dead
+            # connection just sits there, which is the failure being fixed.
+            curl --fail --location --show-error --silent \
+              --retry 5 --retry-all-errors --retry-delay 15 --retry-max-time 1800 \
+              --speed-limit 10240 --speed-time 60 \
+              --continue-at - \
+              --output "${ISO_PATH}" "${ISO_URL}"
+            printf '%s  %s' "${ISO_SHA256}" "${ISO_PATH}" | sha256sum --check
+          fi
+          ls -lh "${ISO_PATH}"
+
+      - name: Save the installer ISO
+        if: steps.iso_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /mnt/packer/iso
+          key: iso-${{ steps.iso.outputs.sha256 }}
+
       - name: Build image
         env:
           VERSION_SAFE: ${{ needs.meta.outputs.version_safe }}
+          ISO_PATH: ${{ steps.iso.outputs.path }}
         run: |
           packer build \
             -var 'headless=true' \
+            -var "iso_url=file://${ISO_PATH}" \
             -var "version=${VERSION_SAFE}" \
             -var 'output_directory=/mnt/packer/output-qemu' \
             -var "cpus=${VM_CPUS}" \
