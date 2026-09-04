@@ -25,10 +25,23 @@
       No .desktop launchers found in {{ viper_account_home }}/Desktop.
       Either the tool tasks did not run or this is running too early again.
 
+# gio writes this flag through gvfsd-metadata, which is D-Bus activated. The build runs
+# over SSH with no session bus, where gio exits 1 with "Setting attribute
+# metadata::caja-trusted-launcher not supported" instead of writing anything, so each
+# call gets a private bus. The store is per-user, which is why this has to run as the
+# account rather than as root.
 - name: "DESKTOP TRUST | Mark the tool launchers as trusted for Caja."
   become: true
   become_user: "{{ viper_account_name }}"
-  command: "gio set {{ item.path }} metadata::caja-trusted-launcher true"
+  command:
+    argv:
+      - "dbus-run-session"
+      - "--"
+      - "gio"
+      - "set"
+      - "{{ item.path }}"
+      - "metadata::caja-trusted-launcher"
+      - "true"
   loop: "{{ viper_desktop_launchers.files }}"
   loop_control:
     label: "{{ item.path | basename }}"
