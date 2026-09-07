@@ -159,6 +159,8 @@ jobs:
 
       - name: Commit container to image
         id: commit
+        env:
+          LABELS: ${{ steps.docker_meta.outputs.labels }}
         run: |
           set -euo pipefail
           CONTAINER_ID=$(docker ps -aqf "name=docker-viper")
@@ -166,7 +168,27 @@ jobs:
             echo "::error::No docker-viper container found to commit."
             exit 1
           fi
-          docker commit "${CONTAINER_ID}" viper-build:latest
+          docker commit "${CONTAINER_ID}" viper-commit:latest
+
+          # docker commit copies the build container's config verbatim, so the published
+          # image carried CMD ["sleep","infinity"] from provisioning and none of the
+          # labels metadata-action computes: the workflow only ever consumed its tags.
+          # An image therefore described itself as LinuxServer's Webtop at a LinuxServer
+          # commit, and nothing in its metadata said which ViPER revision built it.
+          #
+          # A one line rebuild fixes both. --change cannot: it accepts "CMD []" and
+          # silently keeps the old value, and "CMD [\"\"]" sets an empty argument rather
+          # than clearing it. Only a Dockerfile CMD [] restores the base image's null.
+          # Built from stdin so the repository is not sent as a build context, and
+          # --load because this job sets up buildx, without which the result would stay
+          # in the build cache and the tag step below would find nothing.
+          label_args=()
+          while IFS= read -r label; do
+            [ -n "${label}" ] || continue
+            label_args+=(--label "${label}")
+          done <<< "${LABELS}"
+          printf 'FROM viper-commit:latest\nCMD []\n' \
+            | docker build --load "${label_args[@]}" -t viper-build:latest -
 
       # /config is a declared VOLUME in the base image and docker commit does not
       # capture volume contents, so the tool launchers live outside it and are copied
@@ -197,6 +219,22 @@ jobs:
             exit 1
           fi
           echo "all command line tools resolve"
+
+          # Both of these were wrong in every image published before now, and neither
+          # was visible to the checks above, which run with --entrypoint sh and so never
+          # see CMD at all. The first user to notice was a reader of docker inspect.
+          cmd=$(docker image inspect viper-build:latest --format '{{json .Config.Cmd}}')
+          if [ "${cmd}" != "null" ]; then
+            echo "::error::Expected a null CMD, found ${cmd}. The build container's command leaked into the image."
+            exit 1
+          fi
+          revision=$(docker image inspect viper-build:latest \
+            --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+          if [ "${revision}" != "${GITHUB_SHA}" ]; then
+            echo "::error::Image revision label is '${revision}', expected ${GITHUB_SHA}. The image cannot be traced to a commit."
+            exit 1
+          fi
+          echo "image metadata: CMD cleared, revision ${revision}"
 
       - name: Tag and push to Docker Hub and GHCR
         env:
