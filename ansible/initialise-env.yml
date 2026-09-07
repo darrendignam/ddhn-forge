@@ -29,5 +29,5 @@
 - hosts: all
   become: true
   roles:
-    - { role: viper.setup }
-    - { role: viper.tools }
+  - { role: viper.setup }
+  - { role: viper.tools }
