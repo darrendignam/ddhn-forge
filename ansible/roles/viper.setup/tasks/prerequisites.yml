@@ -9,7 +9,7 @@
     mode: '0755'
 
 # The Mint desktop packages live in Mint's own repository, not Ubuntu's. Mint 22.x is
-# Ubuntu 24.04 with this repository added, which is exactly what ViPER needs: a base that
+# Ubuntu with this repository added, which is exactly what ViPER needs: a base that
 # can be installed unattended, wearing the Mint desktop. Both the VM and the container
 # use it, so this is not guarded on virtualization_type.
 - name: "MINT | Download the Linux Mint archive keyring."
@@ -65,6 +65,28 @@
       Package: mint-themes mint-y-icons mint-artwork mint-backgrounds-* mintmenu
       Pin: origin packages.linuxmint.com
       Pin-Priority: 700
+
+      Package: firefox
+      Pin: origin packages.linuxmint.com
+      Pin-Priority: 700
+
+- name: "APT | Keep Ubuntu's Firefox snap stub out of the way."
+  copy:
+    dest: /etc/apt/preferences.d/firefox-no-snap
+    mode: '0644'
+    # Ubuntu's "firefox" is a transition stub that installs the snap and ships no
+    # .desktop file, so mintMenu's Firefox favourite pointed at nothing. Snap does not
+    # run in the container anyway. Mint package a real Firefox deb because they refuse
+    # snap, and the repository is already trusted and pinned above.
+    #
+    # This has to keep the stub from ever being installed, not merely lose to Mint on
+    # priority: Ubuntu's carries an epoch (1:1snap1-0ubuntu8), which outranks Mint's
+    # 155.0.1 whatever the pin says, so once the stub is on the system apt treats the
+    # real browser as a downgrade and refuses it.
+    content: |
+      Package: firefox*
+      Pin: release o=Ubuntu*
+      Pin-Priority: -1
 
 - name: "APT | Install apt package pre-requisites."
   apt:

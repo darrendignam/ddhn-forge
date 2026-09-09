@@ -3,7 +3,9 @@
 
 # Linux Mint release whose repository supplies the desktop theming. Mint gives each point
 # release its own dist, so this is a deliberate pin that must be bumped, exactly like the
-# webtop tag on the container side. zena is Mint 22.3, built on Ubuntu 24.04.
+# base image digest on the container side. zena is Mint 22.3, built on Ubuntu 24.04, and
+# is applied to a 26.04 base: every package taken from it is Architecture: all, so there
+# is no ABI exposure. Check that still holds before raising anything else to priority 700.
 mint_codename: "zena"
 mint_keyring_url: "http://packages.linuxmint.com/pool/main/l/linuxmint-keyring/linuxmint-keyring_2022.06.21_all.deb"
 # packages.linuxmint.com does not answer on https, so the keyring that anchors trust for
@@ -16,7 +18,7 @@ mint_keyring_sha256: "b71be690c543112ea7b65f43e9bbce9a3f17dd5cc784074858f0824154
 # signing key and is independent of how the package reached us.
 mint_keyring_fingerprint: "302F0738F465C1535761F965A6616109451BBBF2"
 
-# Default packages for Docker containers (Ubuntu 24.04 base, MATE desktop).
+# Default packages for Docker containers (Ubuntu 26.04 base, MATE desktop).
 # No display manager and no full desktop metapackage: webtop supplies the session, so the
 # container needs the MATE session and applications but not lightdm, greeters or Marco's
 # power management.
@@ -82,7 +84,9 @@ viper_env_apt_docker_defaults:
   - "xmlstarlet"
   - "libxml2-utils"
   # Packaging, fixity and archives
-  - "p7zip-full"
+  # p7zip is unmaintained upstream and Ubuntu dropped p7zip-full after
+  # noble. 7zip is the official 7-Zip port that replaced it.
+  - "7zip"
   - "hashdeep"
   - "sqlite3"
   # Transfer and remote storage. rclone itself comes from upstream via viper.tools,
@@ -131,7 +135,7 @@ viper_desktop_folders:
   - name: "Sample Files"
     path: "/usr/local/share/viper/samples"
 
-# Default packages for VMs (Ubuntu 24.04 base plus the MATE desktop and Mint theming)
+# Default packages for VMs (Ubuntu 26.04 base plus the MATE desktop and Mint theming)
 viper_env_apt_vm_defaults:
   # Source control
   - "git"
@@ -186,6 +190,10 @@ viper_env_apt_vm_defaults:
   # mint.layout places MateXAppStatusApplet on the panel. Without it mate-panel puts up
   # a modal "encountered a problem while loading" dialog over the desktop at login.
   - "mate-xapp-status-applet"
+  # From Mint, not Ubuntu: Ubuntu's firefox package is a snap transition stub that ships
+  # no .desktop file, which left viper_menu_favorites pointing at a launcher that did not
+  # exist. See the pins in viper.setup/tasks/prerequisites.yml.
+  - "firefox"
   - "locales"
   # GRUB tools for boot configuration
   # Digital preservation command line toolkit. These are the tools a practitioner
@@ -213,7 +221,9 @@ viper_env_apt_vm_defaults:
   - "xmlstarlet"
   - "libxml2-utils"
   # Packaging, fixity and archives
-  - "p7zip-full"
+  # p7zip is unmaintained upstream and Ubuntu dropped p7zip-full after
+  # noble. 7zip is the official 7-Zip port that replaced it.
+  - "7zip"
   - "hashdeep"
   - "sqlite3"
   # Transfer and remote storage. rclone itself comes from upstream via viper.tools,
@@ -253,15 +263,20 @@ viper_env_apt_docker_remove:
 
 # Packages to remove from VMs.
 #
-# Inherited from the Debian 12 build and dangerous on Ubuntu 24.04 with MATE. apt
-# removes reverse dependencies too, and three entries here were quietly fatal:
+# Inherited from the Debian 12 build and dangerous on Ubuntu with MATE. apt
+# removes reverse dependencies too, and four entries here were quietly fatal:
 #
-#   openssl  ca-certificates, openjdk-21-jre, python3-pip, software-properties-common
-#   gnupg    mate-desktop-environment-core, caja, gvfs, udisks2, linuxmint-keyring
-#   bc       the entire CUPS printing stack
+#   openssl   ca-certificates, openjdk-21-jre, python3-pip, software-properties-common
+#   gnupg     mate-desktop-environment-core, caja, gvfs, udisks2, linuxmint-keyring
+#   bc        the entire CUPS printing stack
+#   aptitude  mintsystem, ubuntu-system-adjustments and Firefox
 #
 # Removing openssl and gnupg would have shipped an appliance with no Java runtime, no
-# HTTPS and no file manager to draw the desktop. All three are gone from this list.
+# HTTPS and no file manager to draw the desktop. aptitude only became fatal at v2.0.0,
+# when Firefox started coming from the Mint repository: mintsystem depends on aptitude,
+# ubuntu-system-adjustments depends on mintsystem, and Mint's firefox pulls that chain,
+# so removing aptitude uninstalled the browser two tasks after installing it. All four
+# are gone from this list.
 #
 # scripts/tests/validate-package-lists.py checks a list against a built image and
 # fails if anything would be removed that was not asked for. Run it before adding to
@@ -269,7 +284,6 @@ viper_env_apt_docker_remove:
 viper_env_apt_vm_remove:
   - "acpi"
   - "apcid"
-  - "aptitude"
   - "at"
   - "aspell"
   - "aspell-en"
