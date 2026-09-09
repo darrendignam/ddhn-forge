@@ -45,6 +45,9 @@ log "Starting ViPER desktop configuration as $CURRENT_USER"
 start_conky() {
   [[ -x /usr/local/bin/toggle-conky.sh ]] || return 0
   log "Starting Conky system monitor"
+  # DISPLAY=:1 is the X11 path, which is what ViPER runs. The Selkies base uses :0 only
+  # under PIXELFLUX_WAYLAND, in startwm_wayland.sh and the wayland branch of svc-watchdog.
+  # Enabling Wayland mode would silently break this line rather than error.
   run_as_abc 'export DISPLAY=:1; pkill -x conky; sleep 1; /usr/local/bin/toggle-conky.sh' >> "$LOG_FILE" 2>&1
 }
 

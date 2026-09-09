@@ -4,17 +4,25 @@
     - name: Create a Docker container
       community.docker.docker_container:
         name: docker-viper
-        # Pinned deliberately, for two reasons.
+        # Pinned by digest, not tag, so a rebuild of this branch installs the same
+        # base it was tested against. Re-resolve deliberately when bumping.
         #
-        # KasmVNC: LinuxServer moved webtop's mainline to Selkies. The sister repo's auth
-        # logic depends on KasmVNC, and ubuntu-xfce-kasm is the only remaining flavour
-        # that still uses it. Every other current tag would break authentication.
+        # baseimage-selkies, not webtop. LinuxServer retired the KasmVNC line: the
+        # webtop ubuntu-xfce-kasm branch was marked "Disabling future builds" on
+        # 2026-07-04 and baseimage-kasmvnc has had no commit since 2025-07-12. There is
+        # no Noble landing spot either, since baseimage-selkies:ubuntunoble was disabled
+        # on 2026-06-21 and the Debian branches were deleted; ubunturesolute is the only
+        # live Debian-family flavour.
         #
-        # Ubuntu 24.04: MediaConch-GUI needs libqt5webkit5, which Debian 13 dropped, and
-        # OpenFixity needs libasound2t64, which Debian 12 has no concept of. Noble carries
-        # both. The MATE desktop and Mint theming are applied by viper.setup, so this and
-        # the VM run the same roles against the same OS.
-        image: lscr.io/linuxserver/webtop:ubuntu-xfce-kasm-0e6f6e26-ls36
+        # The bare base rather than webtop:ubuntu-mate: webtop would install MATE, which
+        # viper.setup then installs again, plus chromium and a PPA this build strips. The
+        # base is 653 packages with no desktop, so viper.setup stays the single
+        # definition of the desktop for both the VM and this container.
+        #
+        # Ubuntu 26.04 drops libqt5webkit5 and MediaArea ship no MediaConch for it, so
+        # mediaconch and mediaconch-gui come from packaging/ instead. See
+        # viper.tools.viper_built.
+        image: ghcr.io/linuxserver/baseimage-selkies@sha256:2b3da429ebb59b491def140acdb52a21af7cb9f7d000bd27c58fc3ef63a762fc
         state: started
         command: sleep infinity
         published_ports:

@@ -1,7 +1,7 @@
 ---
 # Desktop environment setup for ViPER.
 #
-# Both VMs and containers run MATE on Ubuntu 24.04 with Linux Mint's theming, so the
+# Both VMs and containers run MATE on Ubuntu 26.04 with Linux Mint's theming, so the
 # desktop settings themselves are shared. They are applied through a system-wide dconf
 # database rather than per-user keys, for two reasons:
 #   - in the container /config is a volume mount, so anything written into the account's
@@ -270,14 +270,15 @@
 # Note: /config is a volume mount, so we cannot create files there during build
 # All /config configuration is handled by the post-install script at runtime
 
-# The session launcher. /defaults/startwm.sh is what actually starts the desktop:
-# s6-rc.d/svc-de/run invokes it directly. The openbox /defaults/autostart that the
-# kasmvnc base image documents is vestigial in the webtop images and is never read,
-# so writing MATE there left XFCE running and looked like a theming failure.
+# The session launcher. /defaults/startwm.sh is what actually starts the desktop, and
+# s6-rc.d/svc-de/run invokes it directly. The Selkies base keeps this same contract, so
+# this task survived the move off KasmVNC unchanged apart from these notes. Writing MATE
+# into /defaults/autostart instead does nothing: that file is openbox's, and it is not
+# read once startwm.sh launches something other than openbox.
 #
-# Overwritten wholesale rather than patched: the stock script hardcodes xfce4-session
-# and seeds XFCE's per-channel xfconf defaults, neither of which applies here. The
-# Nvidia block is kept verbatim from the base so GPU passthrough behaves the same.
+# Overwritten wholesale rather than patched: the stock script ends in openbox-session,
+# which is not what ViPER runs. The Nvidia block is kept verbatim from the base so GPU
+# passthrough behaves the same.
 - name: "DOCKER | Start MATE as the container session."
   copy:
     dest: "/defaults/startwm.sh"
@@ -298,25 +299,26 @@
       export XDG_SESSION_DESKTOP=mate
       export DESKTOP_SESSION=mate
 
-      # dbus-run-session, not dbus-launch --exit-with-session. svc-de depends on
-      # init-services and svc-nginx but not on svc-kasmvnc, so this can run before Xvnc
-      # accepts connections, and --exit-with-session ties the bus to its own X
-      # connection: with no X it prints an address and then tears the daemon down,
-      # unlinking the socket. MATE was left addressing a socket that had already gone
-      # and the session died behind a "Could not connect to session bus" dialog, about
-      # one boot in nine. dbus-run-session ties the bus to the child process instead,
-      # so there is no X dependency and no race.
+      # dbus-run-session, not dbus-launch --exit-with-session, which is what the stock
+      # script still uses. --exit-with-session ties the bus to its own X connection, so
+      # with no X it prints an address and then tears the daemon down, unlinking the
+      # socket. On the KasmVNC base svc-de did not depend on the X server at all, so
+      # this raced it and the session died behind a "Could not connect to session bus"
+      # dialog about one boot in nine. Selkies adds svc-xorg to svc-de's dependencies,
+      # which closes that particular window, but dbus-run-session is kept because it
+      # ties the bus to the child process and so removes the failure mode rather than
+      # narrowing it.
       dbus-run-session -- /usr/bin/mate-session > /dev/null 2>&1
   when: ansible_virtualization_type == "docker"
 
-# Browser tab favicon and the KasmVNC client icon. This base image serves the client
-# from /kclient/public. A Dockerfile in docker-files/ used to carry this branding but
-# was never part of the release path, which is ansible plus docker commit, and it wrote
-# to a /ksuite/public that does not exist in this image. It has been removed.
+# Browser tab favicon and the client icon. Selkies serves its web client from
+# /usr/share/selkies/www, which already ships a favicon.ico and icon.png under exactly
+# these names, so this overwrites LinuxServer's branding with ViPER's. The KasmVNC bases
+# used /kclient/public, which does not exist here.
 - name: "DOCKER | Apply ViPER browser branding."
   copy:
     src: "{{ playbook_dir }}/../docker-files/{{ item.src }}"
-    dest: "/kclient/public/{{ item.dest }}"
+    dest: "/usr/share/selkies/www/{{ item.dest }}"
     owner: root
     group: root
     mode: '0644'
