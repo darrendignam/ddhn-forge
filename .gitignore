@@ -19,3 +19,6 @@ seed-ovf/
 
 # Logs
 /tmp/*.log
+
+# Working notes. Not published: docs/ is the public site, documentation/ is ours.
+documentation/
