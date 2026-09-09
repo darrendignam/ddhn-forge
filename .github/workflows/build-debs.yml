@@ -1,0 +1,167 @@
+# Builds the Debian packages ViPER needs that nothing upstream ships for Ubuntu 26.04,
+# and publishes them to the artifact server.
+#
+# Deliberately not part of the release workflow. QtWebKit is a three-million-line tree
+# that takes roughly 25 minutes to compile, and the output changes only when the source
+# version or one of the vendored patches changes, which is rare. Releases consume what
+# this publishes; they do not rebuild it.
+#
+# After a successful run, update the sha256 values in
+# ansible/roles/viper.tools/defaults/main.yml under viper.tools.viper_built. The build
+# prints them, and the install fails closed if they do not match.
+name: Build ViPER debs
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/build-debs.yml'
+
+permissions:
+  contents: read
+
+env:
+  # The artifact server path these land under. viper_built_deb_base in
+  # viper.tools/defaults/main.yml must agree with this.
+  DEB_CHANNEL: deb-ubuntu-26.04
+
+jobs:
+  qtwebkit:
+    name: Build QtWebKit
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Keyed on the build inputs rather than the commit: the debs are reproducible from
+      # the pinned source version plus the patch set, so an unrelated commit must not
+      # cause a 25 minute rebuild.
+      - name: Key the cache on the build inputs
+        id: key
+        run: |
+          set -euo pipefail
+          h=$(cat packaging/qtwebkit/Dockerfile packaging/qtwebkit/build.sh \
+                  packaging/qtwebkit/patches/* | sha256sum | cut -c1-32)
+          echo "hash=${h}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore a previous build
+        id: cache
+        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: qtwebkit-out
+          key: qtwebkit-${{ steps.key.outputs.hash }}
+
+      - name: Build
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          docker build -t viper-qtwebkit-build:26.04 packaging/qtwebkit
+          mkdir -p qtwebkit-out
+          docker run --rm -v "${PWD}/qtwebkit-out:/out" viper-qtwebkit-build:26.04
+
+      - name: Save the build
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: qtwebkit-out
+          key: qtwebkit-${{ steps.key.outputs.hash }}
+
+      - name: Check what was produced
+        run: |
+          set -euo pipefail
+          ls -la qtwebkit-out/
+          # A repackage rather than a real rebuild would still name noble's libraries,
+          # so this is the cheapest proof that it compiled against 26.04.
+          deps=$(dpkg-deb -f qtwebkit-out/libqt5webkit5_*.deb Depends)
+          for want in libicu78 libxml2-16 qtbase-abi-5-15-18; do
+            case "${deps}" in
+              *"${want}"*) echo "ok   ${want}" ;;
+              *) echo "::error::libqt5webkit5 does not depend on ${want}; it was not built against 26.04."; exit 1 ;;
+            esac
+          done
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qtwebkit-debs
+          path: qtwebkit-out/*.deb
+          retention-days: 7
+
+  mediaconch:
+    name: Build MediaConch
+    needs: qtwebkit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: qtwebkit-debs
+          path: qtwebkit-out
+
+      - name: Build against the QtWebKit just built
+        run: |
+          set -euo pipefail
+          docker build -t viper-mediaconch-build:26.04 packaging/mediaconch
+          mkdir -p mediaconch-out
+          docker run --rm \
+            -v "${PWD}/qtwebkit-out:/qtwebkit:ro" \
+            -v "${PWD}/mediaconch-out:/out" \
+            viper-mediaconch-build:26.04
+          ls -la mediaconch-out/
+
+      - name: Acceptance test in a clean image
+        run: ./packaging/test-debs.sh "${PWD}/qtwebkit-out" "${PWD}/mediaconch-out"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: mediaconch-debs
+          path: mediaconch-out/*.deb
+          retention-days: 7
+
+  publish:
+    name: Publish to the artifact server
+    needs: [qtwebkit, mediaconch]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: debs
+          merge-multiple: true
+
+      - name: Upload
+        env:
+          ARTIFACT_UPLOAD_TOKEN: ${{ secrets.ARTIFACT_UPLOAD_TOKEN }}
+        run: |
+          set -euo pipefail
+          repo_safe=$(printf '%s' "${GITHUB_REPOSITORY}" | tr '/' '-')
+          url="https://artifacts.opf-labs.org/upload/${repo_safe}/${DEB_CHANNEL}"
+
+          # Only what viper.tools installs. The empty libmediaconch0 and
+          # libmediaconch-dev packages and the qml module are not consumed by ViPER.
+          for name in libqt5webkit5 mediaconch mediaconch-gui; do
+            f=$(ls debs/${name}_*.deb)
+            [ -f "${f}" ] || { echo "::error::${name} deb missing"; exit 1; }
+            echo "uploading $(basename "${f}")"
+            curl -X POST "${url}" \
+              -H "Authorization: Bearer ${ARTIFACT_UPLOAD_TOKEN}" \
+              -F "file=@${f}" \
+              -F "md5=$(md5sum "${f}" | cut -d' ' -f1)" \
+              -F "sha256=$(sha256sum "${f}" | cut -d' ' -f1)" \
+              -F "file_type=deb" \
+              --connect-timeout 30 --retry 3 --retry-all-errors \
+              --no-progress-meter --fail-with-body
+            echo
+          done
+
+      - name: Print the checksums to paste into viper.tools
+        run: |
+          set -euo pipefail
+          echo "Update viper.tools.viper_built in ansible/roles/viper.tools/defaults/main.yml:"
+          echo
+          for name in libqt5webkit5 mediaconch mediaconch-gui; do
+            f=$(ls debs/${name}_*.deb)
+            printf '  %-16s %s\n' "${name}" "$(sha256sum "${f}" | cut -d' ' -f1)"
+          done
