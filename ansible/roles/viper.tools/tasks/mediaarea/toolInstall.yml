@@ -1,17 +1,29 @@
 ---
-# Install Media Area Tools and dependencies
-- name: "MediaArea Tools | Check for existing {{ item.name }} package."
-  command: dpkg-query -W {{ item.name }}
-  register: mediaarea_check_deb
-  failed_when: mediaarea_check_deb.rc > 1
-  changed_when: mediaarea_check_deb.rc == 1
-
-- name: "MediaArea Tools | Download Debian package for {{ item.name }}."
+# Installs one prebuilt Debian package, used for both MediaArea's own downloads and the
+# packages ViPER builds for itself.
+#
+# There is deliberately no "is it already installed" guard. The obvious one,
+# `dpkg-query -W <name>`, is wrong here: several of these names are virtual packages
+# provided by something else, so dpkg-query exits 0 with an empty version and the install
+# is skipped. On Ubuntu 26.04 that silently left Ubuntu's older libmediainfo0v5 in place
+# and MediaArea's pinned build never landed. get_url and apt are both idempotent on their
+# own terms, so the guard bought nothing and hid a real failure.
+#
+# Every entry carries a sha256: these arrive over plain HTTPS from a file server with no
+# package signing, so the hash is the only thing tying what gets installed as root to
+# what was reviewed.
+- name: "Package Install | Download Debian package for {{ item.name }}."
   get_url:
-    url="{{ item.download_url }}"
-    dest="/tmp/{{ item.package_name }}"
-  when: mediaarea_check_deb.rc == 1
+    url: "{{ item.download_url }}"
+    dest: "/tmp/{{ item.package_name }}"
+    checksum: "sha256:{{ item.sha256 }}"
+    mode: "0644"
 
-- name: "MediaArea Tools | Install Debian package for {{ item.name }}."
-  apt: deb="/tmp/{{ item.package_name }}"
-  when: mediaarea_check_deb.rc == 1
+- name: "Package Install | Install Debian package for {{ item.name }}."
+  apt:
+    deb: "/tmp/{{ item.package_name }}"
+
+- name: "Package Install | Remove the downloaded package for {{ item.name }}."
+  file:
+    path: "/tmp/{{ item.package_name }}"
+    state: absent

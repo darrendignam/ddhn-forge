@@ -1,5 +1,17 @@
 ---
-# Install Media Area Tools and dependencies
+# Order matters, in both directions.
+#
+# MediaArea's libraries go first because mediaconch-gui depends on libmediainfo0v5, and
+# Ubuntu 26.04 ships its own older build of it. Installing mediaconch-gui first lets apt
+# satisfy that from the Ubuntu archive, after which MediaArea's pinned 26.05 cannot be
+# installed and `mediainfo` fails with an unsatisfiable dependency on its own library.
+#
+# Within the ViPER-built list, libqt5webkit5 precedes mediaconch-gui for the same reason:
+# the GUI links libQt5WebKit.so.5 and nothing in the archive provides it on 26.04.
 - name: "MediaArea Tools | Install Media Area Tools."
   include_tasks: toolInstall.yml
   with_items: "{{ viper.tools.mediaarea }}"
+
+- name: "ViPER Built | Install packages ViPER builds for Ubuntu 26.04."
+  include_tasks: toolInstall.yml
+  with_items: "{{ viper.tools.viper_built }}"

@@ -17,6 +17,11 @@ viper_account_name: "{{ viper_env_user_name | default('viper') }}"
 # account in one place and every launcher in another, with no error.
 viper_account_home: "{{ viper_env_user_home | default('/home/' + viper_account_name) }}"
 
+# Where the packages ViPER builds for itself are published. Overridable so a local build
+# can be tested without publishing: point it at a file:// path or a local HTTP server.
+# See packaging/ for what produces them and viper.tools.viper_built for the list.
+viper_built_deb_base: "https://artifacts.opf-labs.org/download/darrendignam-ddhn-forge/deb-ubuntu-26.04"
+
 # Tools installed via Debian package manager
 viper_debian_tools:
   # Debian handbrake installation
@@ -233,29 +238,50 @@ viper:
       dests:
         bin: "{{ viper_bin }}"
         lib: "{{ viper_lib }}/veraPDF-arlington/{{ verapdf_arlington_version }}"
+    # MediaArea publish these for Ubuntu 26.04 themselves. MediaConch is not among them:
+    # their resolute suite carries MediaInfo only, and their newest MediaConch build of
+    # any kind is 25.04 for Debian 12 / Ubuntu 24.04, which links libxml2.so.2. Ubuntu
+    # 26.04 ships libxml2.so.16, so those debs would not run here even if libqt5webkit5
+    # were still in the archive. MediaConch therefore comes from viper_built below.
     mediaarea:
       - name: "libzen0"
-        download_url: "https://mediaarea.net/download/binary/libzen0/0.4.41/libzen0v5_0.4.41-1_amd64.Debian_12.deb"
-        package_name: "libzen0v5_0.4.41-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/libzen0/0.4.41/libzen0v5_0.4.41-1_amd64.Ubuntu_26.04.deb"
+        package_name: "libzen0v5_0.4.41-1_amd64.Ubuntu_26.04.deb"
+        sha256: "74b4b7496554c1da84b1b511ac8dad2bec910742633acc185cfaee97e31fee58"
       - name: "libmediainfo0"
-        download_url: "https://mediaarea.net/download/binary/libmediainfo0/26.05/libmediainfo0v5_26.05-1_amd64.Debian_12.deb"
-        package_name: "libmediainfo0v5_26.05-1_amd64.Debian_12.deb"
-      - name: "libmediaconch0"
-        download_url: "https://mediaarea.net/download/binary/libmediaconch0/25.04/libmediaconch0_25.04-1_amd64.Debian_12.deb"
-        package_name: "libmediaconch0_25.04-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/libmediainfo0/26.05/libmediainfo0v5_26.05-1_amd64.Ubuntu_26.04.deb"
+        package_name: "libmediainfo0v5_26.05-1_amd64.Ubuntu_26.04.deb"
+        sha256: "aa170838e2c6474443708164dbef52068f10ead0c82d8242ae5e9f1729697b18"
       # CLI counterparts, pinned to the same upstream versions as the GUIs below.
-      # Ubuntu ships mediainfo 24.01 and mediaconch 23.10, which would put two
-      # different versions of the same tool on one appliance and make the CLI and the
-      # GUI disagree, so these come from MediaArea like everything else here.
+      # Ubuntu ships an older mediainfo, which would put two different versions of the
+      # same tool on one appliance and make the CLI and the GUI disagree, so these come
+      # from MediaArea like everything else here.
       - name: "mediainfo"
-        download_url: "https://mediaarea.net/download/binary/mediainfo/26.05/mediainfo_26.05-1_amd64.Debian_12.deb"
-        package_name: "mediainfo_26.05-1_amd64.Debian_12.deb"
-      - name: "mediaconch"
-        download_url: "https://mediaarea.net/download/binary/mediaconch/25.04/mediaconch_25.04-1_amd64.Debian_12.deb"
-        package_name: "mediaconch_25.04-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/mediainfo/26.05/mediainfo_26.05-1_amd64.Ubuntu_26.04.deb"
+        package_name: "mediainfo_26.05-1_amd64.Ubuntu_26.04.deb"
+        sha256: "ced65215f38d84e8e025e396a989191b155979f73d2c76f623d347b525983ad3"
       - name: "mediainfo-gui"
-        download_url: "https://mediaarea.net/download/binary/mediainfo-gui/26.05/mediainfo-gui_26.05-1_amd64.Debian_12.deb"
-        package_name: "mediainfo-gui_26.05-1_amd64.Debian_12.deb"
+        download_url: "https://mediaarea.net/download/binary/mediainfo-gui/26.05/mediainfo-gui_26.05-1_amd64.Ubuntu_26.04.deb"
+        package_name: "mediainfo-gui_26.05-1_amd64.Ubuntu_26.04.deb"
+        sha256: "83d7bdef063d9ccae876f3e8cffcf95e238b50a500bc86be41b1dc0cc37bb684"
+
+    # Packages ViPER builds itself because nothing upstream ships them for Ubuntu 26.04.
+    # Built by the workflow in packaging/, which rebuilds Ubuntu noble's QtWebKit source
+    # package with the newer toolchain patches Arch and Fedora maintain, then compiles
+    # MediaConch against it. Order matters: libqt5webkit5 must land before mediaconch-gui.
+    #
+    # libmediaconch0 is deliberately absent. This build links the library statically into
+    # each binary, so the package comes out empty and mediaconch-gui does not depend on it.
+    viper_built:
+      - name: "libqt5webkit5"
+        download_url: "{{ viper_built_deb_base }}/libqt5webkit5_5.212.0~alpha4-36viper1_amd64.deb"
+        package_name: "libqt5webkit5_5.212.0~alpha4-36viper1_amd64.deb"
+        sha256: "bfcab10a95c3e8aa2ccea8fadcf649e15c7591c1381529bd6a58d0179e4d9148"
+      - name: "mediaconch"
+        download_url: "{{ viper_built_deb_base }}/mediaconch_25.04-1viper1_amd64.deb"
+        package_name: "mediaconch_25.04-1viper1_amd64.deb"
+        sha256: "5ed3f3fc18a9f859771ffbb6fdc08c8d525d73082e426c6b8a52f2a15479df16"
       - name: "mediaconch-gui"
-        download_url: "https://mediaarea.net/download/binary/mediaconch-gui/25.04/mediaconch-gui_25.04-1_amd64.Debian_12.deb"
-        package_name: "mediaconch-gui_25.04-1_amd64.Debian_12.deb"
+        download_url: "{{ viper_built_deb_base }}/mediaconch-gui_25.04-1viper1_amd64.deb"
+        package_name: "mediaconch-gui_25.04-1viper1_amd64.deb"
+        sha256: "c65758d6d89aa5db0049cec54298ecfc481455ff331c5932a6a43177e401cc0e"
