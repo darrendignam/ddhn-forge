@@ -69,7 +69,13 @@ jobs:
           else
             VERSION="${INPUT_VERSION}"
           fi
-          VERSION_SAFE=$(printf '%s' "${VERSION}" | tr '/:' '--')
+          # The tag keeps its "v" because the trigger above matches on it and because
+          # that is the git convention. Everything derived drops it: semver says the
+          # version is "2.0.0" and the "v" is tag notation only, which is why Debian
+          # versions and Docker tags never carry one. docker/metadata-action already
+          # strips it for the image tag, so without this the artefacts and the container
+          # disagreed about what the same release was called.
+          VERSION_SAFE=$(printf '%s' "${VERSION#v}" | tr '/:' '--')
           REPO_SAFE=$(printf '%s' "${GITHUB_REPOSITORY}" | tr '/' '-')
 
           # Only a bare semver triple is a full release. Everything else, including
@@ -544,7 +550,11 @@ jobs:
           body: |
             ViPER ${{ needs.meta.outputs.version }}
 
-            ## Downloads
+            ViPER ships two ways. Take the virtual machine if you want a desktop
+            appliance to download and run; take the container if you want the same
+            toolset in a browser, on a server or in CI.
+
+            ## Virtual machine
 
             Images are hosted on the OPF artifact server.
 
@@ -555,11 +565,25 @@ jobs:
             - **QCOW2** (QEMU/KVM, native format):
               https://artifacts.opf-labs.org/download/${{ needs.meta.outputs.repo_safe }}/${{ needs.meta.outputs.version_safe }}/${{ needs.vm-build.outputs.qcow2_name }}
 
-            ## Installation
+            To install: download the OVA, import it into VirtualBox, VMware or another
+            OVF compatible platform, and start the machine.
 
-            1. Download the OVA.
-            2. Import it into VirtualBox, VMware or another OVF compatible platform.
-            3. Start the machine.
+            ## Container
+
+            The same tools, reached in a browser. Published to GitHub Container Registry
+            and Docker Hub.
+
+            ```
+            docker run -d --name viper -p 3000:3000 \
+              ghcr.io/${{ github.repository_owner }}/opf-cloud-viper:${{ needs.meta.outputs.version_safe }}
+            ```
+
+            Then open http://localhost:3000. The image is also on Docker Hub under the
+            same name and tag.
+
+            Pin the version tag shown above for a reproducible environment. `latest`
+            tracks the default branch, and the `2` and `2.0` aliases move only on a
+            final release, never on a prerelease.
 
             ## Signing in
 
@@ -577,7 +601,7 @@ jobs:
 
             ## Specification
 
-            - OS: Ubuntu 24.04 LTS (Noble Numbat)
+            - OS: Ubuntu 26.04 LTS (Resolute Raccoon)
             - Desktop: MATE, themed with Linux Mint's Mint-Y
             - CPUs: ${{ env.VM_CPUS }}
             - Memory: ${{ env.VM_MEMORY }} MB
