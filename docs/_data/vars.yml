@@ -4,12 +4,12 @@
 # these change when a release merges, not when a branch is built.
 #
 # Every value here is taken from a built image rather than from the tool defaults, so
-# the apt-installed applications reflect what Ubuntu 24.04 actually ships.
+# the apt-installed applications reflect what Ubuntu 26.04 actually ships.
 version: "1.4.0"
 release_date: "03.09.2026"
 guest_os: "Ubuntu"
-guest_os_version: "24.04"
-guest_os_nickname: "Noble Numbat"
+guest_os_version: "26.04"
+guest_os_nickname: "Resolute Raccoon"
 desktop: "MATE"
 desktop_theme: "Linux Mint"
 droid_version: "6.9.13"
@@ -22,8 +22,8 @@ jpylyzer_version: "2.2.1"
 odf_validator_version: "0.20-beta-1"
 openfixity_version: "0.1.1-ALPHA"
 rclone_version: "1.75.0"
-handbrake_version: "1.7.2"
+handbrake_version: "1.11.0"
 mediainfo_version: "26.05"
 mediaconch_version: "25.04"
-inkscape_version: "1.2.2"
-gimp_version: "2.10.36"
+inkscape_version: "1.4.3"
+gimp_version: "3.2.2"

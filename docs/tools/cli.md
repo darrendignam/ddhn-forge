@@ -198,16 +198,17 @@ img2pdf scan1.tif scan2.tif -o scanned.pdf
 
 ### ImageMagick
 
-Ubuntu 24.04 ships ImageMagick 6, so the commands are `convert`, `identify` and
-`mogrify`. Most current ImageMagick documentation online shows the version 7 syntax,
-where everything is a subcommand of `magick`. That binary does not exist here.
+Ubuntu 26.04 ships ImageMagick 7, so `magick` is the primary command and everything
+online showing the version 7 syntax applies. The version 6 commands `convert`,
+`identify` and `mogrify` are still installed and still work, so older recipes and
+scripts written against ViPER 1.x keep running, but `magick` is the one to learn.
 
 ```bash
-convert input.jpg -resize 50% output.jpg
-convert input.tif -colorspace sRGB -quality 90 output.jpg
-convert input.tif -compress lzw output.tif
-identify -verbose image.tif
-mogrify -path thumbs -resize 512x512 *.tif
+magick input.jpg -resize 50% output.jpg
+magick input.tif -colorspace sRGB -quality 90 output.jpg
+magick input.tif -compress lzw output.tif
+magick identify -verbose image.tif
+magick mogrify -path thumbs -resize 512x512 *.tif
 ```
 
 ### libvips

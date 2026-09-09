@@ -7,7 +7,53 @@ The GitHub "What's Changed" list is generated from pull request titles and does 
 surface behaviour changes that affect existing users. Those belong here, under
 **Behaviour changes**, so they can be lifted straight into release notes.
 
-## v1.4.0-alpha (unreleased)
+## v2.0.0 (unreleased)
+
+The last release of the 1.x line was v1.4.0-alpha. This is a major version because the
+container is rebuilt on a different base and the appliance moves to a new operating
+system, and because both were forced rather than chosen.
+
+**LinuxServer retired the KasmVNC base images.** The `ubuntu-xfce-kasm` webtop branch
+ViPER pinned was marked "Disabling future builds" on 2026-07-04, and the base image
+under it had received no commit since 2025-07-12. The replacement is Selkies, and its
+only maintained Debian-family flavour runs **Ubuntu 26.04 LTS**. Staying on 24.04 would
+have split the VM and the container onto different operating systems, which is the
+opposite of where ViPER is going, so both move together.
+
+The container now builds on the bare `baseimage-selkies` rather than a webtop image.
+Webtop would install a desktop that `viper.setup` then installs over the top of, so
+taking the base keeps the Ansible roles as the single definition of the desktop for both
+the VM and the container.
+
+**Ubuntu 26.04 removed `libqt5webkit5`, which MediaConch's GUI links, and MediaArea
+publish no MediaConch for 26.04 at all.** Rather than drop a tool that matters to AV
+preservation, ViPER now builds QtWebKit and MediaConch from source as part of the
+pipeline. See `packaging/`.
+
+### Behaviour changes
+
+- **ImageMagick is version 7, not 6.** `magick` is now the primary command and the
+  version 7 documentation online applies. The version 6 commands `convert`, `identify`
+  and `mogrify` are still installed and still work, so existing scripts keep running.
+- **GIMP is version 3, not 2.10.** Ubuntu 26.04 ships GIMP 3.2, which is a major
+  upgrade with a reworked interface and a new native file format. GIMP 2.10 `.xcf` files
+  still open. Inkscape moves 1.2 to 1.4 and HandBrake 1.7 to 1.11 in the same way, both
+  compatible upgrades.
+- **Firefox is a real Debian package again.** Ubuntu's `firefox` is a stub that installs
+  a snap and ships no desktop launcher, which left the Firefox entry in the menu
+  pointing at nothing. ViPER now takes Firefox from the Linux Mint repository it already
+  uses for theming. The VM gains Firefox, which it did not previously install despite
+  the menu offering it.
+- **Release artefacts drop the leading `v`.** A release tagged `v2.0.0` publishes
+  `viper-2.0.0.ova` rather than `viper-v2.0.0.ova`. The git tag keeps its `v`; the
+  version itself does not carry one, which is what semver specifies and what the
+  container tag already did. Old releases are unaffected and their URLs still work.
+- **Release notes now describe the container as well as the VM**, with a pull command.
+  ViPER has shipped both for some time and the notes only mentioned the appliance.
+- `p7zip-full` was dropped by Ubuntu and is replaced by `7zip`. This is invisible in
+  use: `7z`, `7za`, `7zr` and `p7zip` are all still provided.
+
+## v1.4.0-alpha (2026-09-09)
 
 An alpha. Three of the bundled tools are pre-release upstream, and the operating
 system and desktop have both changed, so this is for evaluation rather than for

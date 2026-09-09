@@ -16,7 +16,7 @@ In order to use the ViPER you will need to:
 
 - check that your desktop has been set up to support virtualisation, this is done in your [BIOS settings](https://bce.berkeley.edu/enabling-virtualization-in-your-pc-bios.html)
 - download and install [Oracle VirtualBox](https://www.virtualbox.org/wiki/Downloads)
-- download and install the [ViPER image](https://ddhn.openpreservation.org/viper-v{{ site.data.vars.version }}.ova)
+- download and install the [ViPER image](https://ddhn.openpreservation.org/viper-{{ site.data.vars.version }}.ova)
 
 ## Creating the VM environment
 
@@ -45,4 +45,4 @@ When both downloads are completed install by selecting each executable file. A s
 
 ### Downloading ViPER
 
-ViPER is downloaded as a single machine image as a prebuilt OVA file. The most current version can be downloaded via the following link: <https://ddhn.openpreservation.org/viper-v{{ site.data.vars.version }}.ova>. The file is several GB and may take some time to download. When the download has completed select the .ova file to complete the installation process. This will open a dialogue box that will give you the option to import the virtual appliance (ViPER) - proceed by selecting ‘import’.
+ViPER is downloaded as a single machine image as a prebuilt OVA file. The most current version can be downloaded via the following link: <https://ddhn.openpreservation.org/viper-{{ site.data.vars.version }}.ova>. The file is several GB and may take some time to download. When the download has completed select the .ova file to complete the installation process. This will open a dialogue box that will give you the option to import the virtual appliance (ViPER) - proceed by selecting ‘import’.

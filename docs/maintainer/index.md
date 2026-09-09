@@ -23,15 +23,17 @@ You'll need at least familiarity with the following software and technologies to
 
 ### Operating system
 
-[{{ site.data.vars.guest_os }} {{ site.data.vars.guest_os_version }} ({{ site.data.vars.guest_os_nickname }})](https://ubuntu.com/) is the base OS. Stability and a long update cycle drove the original choice, and 24.04 LTS is supported to 2029.
+[{{ site.data.vars.guest_os }} {{ site.data.vars.guest_os_version }} ({{ site.data.vars.guest_os_nickname }})](https://ubuntu.com/) is the base OS. Stability and a long update cycle drove the original choice, and 26.04 LTS is supported to 2036.
 
-The appliance moved from Debian 12 at v1.4.0 because no Debian release runs the full tool set: Debian 13 dropped `libqt5webkit5`, which MediaConch-GUI needs, and Debian 12 has no `libasound2t64`, which OpenFixity needs. Ubuntu 24.04 satisfies both.
+The appliance moved from Debian 12 to Ubuntu 24.04 at v1.4.0 because no Debian release runs the full tool set: Debian 13 dropped `libqt5webkit5`, which MediaConch-GUI needs, and Debian 12 has no `libasound2t64`, which OpenFixity needs.
+
+v2.0.0 moved again, to Ubuntu 26.04. LinuxServer retired the KasmVNC base images the container was built on, and the only maintained Debian-family flavour of the replacement runs 26.04, so staying on 24.04 would have split the VM and the container onto different releases. 26.04 drops `libqt5webkit5` in turn, so ViPER now builds QtWebKit and MediaConch from source; see `packaging/`.
 
 ### Virtualisation
 
 - [VirtualBox](https://www.virtualbox.org/) was chosen as the virtualisation platform because of its cross platform ubiquity.
 - [Vagrant](https://www.vagrantup.com/) is a tool designed for building and managing virtual machine environments. It was chosen to speed up the initial VirtualBox provisioning.
-- [Vagrant Cloud](https://app.vagrantup.com/) provides a collection of cookie-cut virtual machines. The starting point is the Bento {{ site.data.vars.guest_os }} {{ site.data.vars.guest_os_version }} build: <https://app.vagrantup.com/bento/boxes/ubuntu-24.04>. Canonical stopped publishing official boxes after focal, so there is no `ubuntu/noble64`.
+- [Vagrant Cloud](https://app.vagrantup.com/) provides a collection of cookie-cut virtual machines. The starting point is the Bento {{ site.data.vars.guest_os }} {{ site.data.vars.guest_os_version }} build: <https://app.vagrantup.com/bento/boxes/ubuntu-26.04>. Canonical stopped publishing official boxes after focal, so there is no official box for this release.
 - [Packer](https://www.packer.io/) builds the published images. Vagrant is still the quickest way to iterate on the Ansible roles locally, but a release is built from a plain {{ site.data.vars.guest_os }} ISO so that it inherits nothing from a third party base box. See [Building a release](#building-a-release).
 
 ### Provisioning
@@ -49,7 +51,7 @@ The vagrant machine is configured by a [`Vagrantfile`](https://github.com/openpr
 The VirtualBox VM is initialised with on the following line, which also selects the guest OS version:
 
 ```shell
-config.vm.box = "bento/ubuntu-24.04"
+config.vm.box = "bento/ubuntu-26.04"
 ```
 
 This chooses a 64 bit {{ site.data.vars.guest_os }} {{ site.data.vars.guest_os_version }} ({{ site.data.vars.guest_os_nickname }}) image as the base OS.

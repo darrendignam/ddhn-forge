@@ -63,7 +63,7 @@ descriptor. The disk capacity is read from the image itself rather than assumed.
 
 ## What the build does
 
-1. Packer downloads the Ubuntu 24.04 ISO and installs it unattended via the
+1. Packer downloads the Ubuntu 26.04 ISO and installs it unattended via the
    subiquity autoinstall description in `http/user-data`.
 2. `scripts/install-guest-additions.sh` adds the VirtualBox guest additions.
 3. Ansible provisions the `viper.setup` and `viper.tools` roles.
