@@ -111,6 +111,23 @@
   notify: update grub configuration
   when: ansible_virtualization_type != "docker"
 
+- name: "GRUB | Name the boot entry for ViPER, not Linux Mint."
+  lineinfile:
+    path: /etc/linuxmint/info
+    regexp: '^GRUB_TITLE='
+    line: "GRUB_TITLE=ViPER{{ ' ' ~ viper_version if viper_version | default('') | length > 0 else '' }}"
+  # mint-info-cinnamon arrives with the theming packages, nothing depends on it, and it
+  # sets GRUB_TITLE=Linux Mint 22.3 Cinnamon. ubuntu-system-adjustments.service then
+  # rewrites that title into /boot/grub/grub.cfg on every boot, so the appliance
+  # announced itself as a Cinnamon release of Mint: wrong distribution, wrong version and
+  # wrong desktop. Editing GRUB_TITLE works with that mechanism rather than fighting it,
+  # and it survives grub-pc being removed a few tasks below, which is what stops
+  # update-grub ever regenerating the file.
+  #
+  # Only visible when GRUB shows a menu at all, which for a single-OS appliance means
+  # after an unclean shutdown sets recordfail. That is exactly when someone is watching.
+  when: ansible_virtualization_type != "docker"
+
 - name: "APT | Remove unnecessary packages."
   apt:
     name: "{{ viper.setup.remove.apt }}"
