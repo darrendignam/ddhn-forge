@@ -49,6 +49,16 @@ variable "accelerator" {
   description = "QEMU accelerator (kvm, tcg, none)."
 }
 
+variable "viper_built_deb_base" {
+  type        = string
+  default     = ""
+  description = <<-EOT
+    Where to fetch the packages ViPER builds for itself (libqt5webkit5, mediaconch,
+    mediaconch-gui). Empty keeps the role default, which is the artifact server. Point
+    this at a local HTTP server to test a fresh deb build before publishing it.
+  EOT
+}
+
 variable "output_directory" {
   type    = string
   default = "output-qemu"
@@ -60,9 +70,14 @@ variable "ssh_timeout" {
   description = "How long to wait for the unattended install to finish and SSH to come up."
 }
 
-# Ubuntu 24.04 LTS, not Debian. No Debian release runs the full ViPER tool set:
-# Debian 13 dropped libqt5webkit5, which mediaconch-gui needs, and Debian 12 has no
-# libasound2t64, which OpenFixity needs. Noble carries both.
+# Ubuntu 26.04 LTS. v2.0.0 moves off Noble because the container's base image forced
+# it: LinuxServer retired the KasmVNC line and the only live Debian-family flavour of
+# baseimage-selkies is ubunturesolute, so staying on 24.04 would have split the VM and
+# the container onto different releases.
+#
+# 26.04 drops libqt5webkit5, which mediaconch-gui links, and MediaArea publish no
+# MediaConch for it at all. Both are built from source instead; see packaging/ and
+# viper.tools.viper_built. p7zip-full is also gone, replaced by 7zip.
 #
 # The desktop is MATE with Linux Mint's theming rather than Ubuntu's own, installed on
 # top of the server image. See ansible/roles/viper.setup/defaults/main.yml.
@@ -73,19 +88,19 @@ variable "ssh_timeout" {
 # against 14m36s for 12.8.0. The cause was never identified and was probably mirror side.
 variable "iso_url" {
   type    = string
-  default = "https://releases.ubuntu.com/24.04/ubuntu-24.04.4-live-server-amd64.iso"
+  default = "https://releases.ubuntu.com/26.04/ubuntu-26.04.1-live-server-amd64.iso"
 }
 
 variable "iso_checksum" {
   type    = string
-  default = "sha256:e907d92eeec9df64163a7e454cbc8d7755e8ddc7ed42f99dbc80c40f1a138433"
+  default = "sha256:cc8a95cde20f6ced61a322420de00f10cc3c90ced545daa46cb9c1a117f1d927"
 }
 
 locals {
   vm_name = var.vm_name != "" ? var.vm_name : "viper-${var.version}"
 }
 
-source "qemu" "ubuntu-noble" {
+source "qemu" "ubuntu-resolute" {
   vm_name          = local.vm_name
   iso_url          = var.iso_url
   iso_checksum     = var.iso_checksum
@@ -156,7 +171,7 @@ source "qemu" "ubuntu-noble" {
 }
 
 build {
-  sources = ["source.qemu.ubuntu-noble"]
+  sources = ["source.qemu.ubuntu-resolute"]
 
   # The security role turns off password authentication, which is what Packer
   # authenticates with. A drop-in keeps the build's own connections working
@@ -177,10 +192,10 @@ build {
   provisioner "ansible" {
     playbook_file = "ansible/packer.yml"
     user          = "vagrant"
-    extra_arguments = [
-      "-vv",
-      "--extra-vars", "viper_version=${var.version}"
-    ]
+    extra_arguments = concat(
+      ["-vv", "--extra-vars", "viper_version=${var.version}"],
+      var.viper_built_deb_base != "" ? ["--extra-vars", "viper_built_deb_base=${var.viper_built_deb_base}"] : []
+    )
   }
 
   # Prove the tools actually run before we spend hours uploading the image.

@@ -1,5 +1,5 @@
 #cloud-config
-# Ubuntu 24.04 LTS autoinstall, replacing the Debian preseed.
+# Ubuntu 26.04 LTS autoinstall, replacing the Debian preseed.
 #
 # Ubuntu Server is used rather than the Linux Mint ISO because Mint ships Ubiquity, the
 # live-session installer, which has no supported unattended path. Subiquity autoinstall
