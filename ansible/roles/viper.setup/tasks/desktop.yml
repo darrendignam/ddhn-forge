@@ -355,22 +355,26 @@
   loop_control:
     label: "{{ item.path | basename }}"
 
-# Browser tab favicon and the client icon. Selkies serves its web client from
-# /usr/share/selkies/www, which already ships a favicon.ico and icon.png under exactly
-# these names, so this overwrites LinuxServer's branding with ViPER's. The KasmVNC bases
-# used /kclient/public, which does not exist here.
+# Browser tab favicon and the client icon.
+#
+# /usr/share/selkies/www is an input directory, not the web root. nginx serves
+# /usr/share/selkies/web, and init-nginx populates the branding from www at container
+# start with:
+#
+#   cp www/icon.png web/favicon.ico
+#   cp www/icon.png web/icon.png
+#
+# So one PNG becomes both the tab icon and the client icon, and www/favicon.ico is never
+# read by anything. Writing one used to happen here and achieved nothing; it is dropped
+# rather than pointed at web/, because anything written directly to web/ is overwritten
+# by that copy on the next start.
 - name: "DOCKER | Apply ViPER browser branding."
   copy:
-    src: "{{ playbook_dir }}/../docker-files/{{ item.src }}"
-    dest: "/usr/share/selkies/www/{{ item.dest }}"
+    src: "{{ playbook_dir }}/../docker-files/apple-touch-icon.png"
+    dest: "/usr/share/selkies/www/icon.png"
     owner: root
     group: root
     mode: '0644'
-  loop:
-    - { src: "favicon.ico", dest: "favicon.ico" }
-    - { src: "apple-touch-icon.png", dest: "icon.png" }
-  loop_control:
-    label: "{{ item.dest }}"
   when: ansible_virtualization_type == "docker"
 
 - name: "DOCKER | Copy post-install script for desktop icon configuration."
