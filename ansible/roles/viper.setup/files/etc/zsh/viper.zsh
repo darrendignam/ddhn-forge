@@ -55,10 +55,15 @@ bindkey '^[OF' end-of-line
 # shown, since then you may well be on a machine that is not this one.
 #
 # %(4~|.../%3~|%~) keeps a deep path readable by eliding all but the last three parts.
+# Colours are chosen to survive either background. The terminal inherits Mint's theme,
+# which is light, and the previous cyan path with a yellow marker was close to unreadable
+# on it. The path now uses the terminal's own foreground, bold only, which is guaranteed
+# to contrast whatever background the user picks. Magenta and red are the two ANSI
+# colours that stay legible on both light and dark.
 if [[ -n ${SSH_CONNECTION} ]]; then
-  PROMPT='%F{green}%n@%m%f %B%F{cyan}%(4~|.../%3~|%~)%f%b %F{yellow}❯%f '
+  PROMPT='%F{red}%n@%m%f %B%(4~|.../%3~|%~)%b %F{magenta}❯%f '
 else
-  PROMPT='%B%F{cyan}%(4~|.../%3~|%~)%f%b %F{yellow}❯%f '
+  PROMPT='%B%(4~|.../%3~|%~)%b %F{magenta}❯%f '
 fi
 
 # Failed commands announce themselves on the right rather than silently.

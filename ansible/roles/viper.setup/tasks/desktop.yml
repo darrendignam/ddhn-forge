@@ -311,6 +311,50 @@
       dbus-run-session -- /usr/bin/mate-session > /dev/null 2>&1
   when: ansible_virtualization_type == "docker"
 
+# HandBrake registers every video MIME type because it transcodes them, so with no media
+# player installed it became the system default for opening video and audio, and MATE's
+# Preferred Applications listed a transcoder as the Multimedia Player. Installing mpv is
+# not enough on its own: the existing default is recorded and survives, so the association
+# has to be stated.
+#
+# /etc/xdg/mimeapps.list is the system-wide default list, so this covers both the VM and
+# the container and applies to every account rather than only the one the container runs.
+- name: "DESKTOP | Make mpv the default for audio and video."
+  copy:
+    dest: /etc/xdg/mimeapps.list
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Default Applications]
+      {% for t in viper_media_mime_types %}
+      {{ t }}=mpv.desktop
+      {% endfor %}
+
+# ImageMagick's "display" is a debugging tool with an interface nobody wants to meet by
+# accident, and it registers every image MIME type, so it shows up in menus and in MATE's
+# Preferred Applications as a candidate image viewer. eom is already installed and is
+# already the xdg-mime default for every image type, so this only stops display being
+# offered; it does not change what a double click opens.
+#
+# Globbed rather than named: the file carries the ImageMagick major version and quantum
+# depth, currently display-im7.q16.desktop, and both move between releases.
+- name: "DESKTOP | Find ImageMagick's display launcher."
+  find:
+    paths: /usr/share/applications
+    patterns: "display-im*.desktop"
+  register: imagemagick_launchers
+
+- name: "DESKTOP | Hide ImageMagick's display from menus and preferred applications."
+  lineinfile:
+    path: "{{ item.path }}"
+    regexp: '^NoDisplay='
+    line: "NoDisplay=true"
+    insertafter: '^\[Desktop Entry\]$'
+  loop: "{{ imagemagick_launchers.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
 # Browser tab favicon and the client icon. Selkies serves its web client from
 # /usr/share/selkies/www, which already ships a favicon.ico and icon.png under exactly
 # these names, so this overwrites LinuxServer's branding with ViPER's. The KasmVNC bases

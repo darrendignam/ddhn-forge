@@ -59,6 +59,16 @@ viper_env_apt_docker_defaults:
   - "mate-xapp-status-applet"
   - "firefox"
   - "conky-all"
+  # A preservation appliance emits XML and CSV all day and had nothing that could open
+  # either: no text/plain handler was registered at all, so JHOVE and veraPDF output
+  # opened nothing on a double click. pluma is MATE's own editor.
+  - "pluma"
+  # No media player was installed. HandBrake appeared in MATE's Preferred Applications as
+  # the multimedia and video player only because it registers video MIME types; it is a
+  # transcoder and cannot play anything. mpv plays whatever ffmpeg can decode, which
+  # includes the FFV1 in Matroska that MediaConch exists to validate.
+  - "mpv"
+  - "mate-calc"
   # Digital preservation command line toolkit. These are the tools a practitioner
   # automates with: format conversion, PDF/A normalisation, metadata extraction,
   # fixity, and the XML/JSON plumbing that scripts and LLM pipelines need.
@@ -101,6 +111,26 @@ viper_env_apt_docker_defaults:
   - "zsh"
   - "zsh-syntax-highlighting"
   - "zsh-autosuggestions"
+
+# Audio and video types that should open in a player rather than in HandBrake, which
+# claims them all because it transcodes them. Matroska and the FFV1 that lives inside it
+# are first on purpose: they are what MediaConch validates, so being able to watch one is
+# part of the job.
+viper_media_mime_types:
+  - "video/x-matroska"
+  - "video/mp4"
+  - "video/quicktime"
+  - "video/x-msvideo"
+  - "video/mpeg"
+  - "video/x-ms-wmv"
+  - "video/webm"
+  - "video/ogg"
+  - "audio/mpeg"
+  - "audio/x-wav"
+  - "audio/flac"
+  - "audio/ogg"
+  - "audio/mp4"
+  - "audio/aac"
 
 # mintMenu Favorites, in display order. Preservation tools first, because they are the
 # reason the appliance exists, then the viewers and editors they hand off to, then the
@@ -242,6 +272,16 @@ viper_env_apt_vm_defaults:
   # working volume accordingly, but conky was only ever installed in the container, so
   # the released VM had no panel, no toggle and no menu entry.
   - "conky-all"
+  # A preservation appliance emits XML and CSV all day and had nothing that could open
+  # either: no text/plain handler was registered at all, so JHOVE and veraPDF output
+  # opened nothing on a double click. pluma is MATE's own editor.
+  - "pluma"
+  # No media player was installed. HandBrake appeared in MATE's Preferred Applications as
+  # the multimedia and video player only because it registers video MIME types; it is a
+  # transcoder and cannot play anything. mpv plays whatever ffmpeg can decode, which
+  # includes the FFV1 in Matroska that MediaConch exists to validate.
+  - "mpv"
+  - "mate-calc"
   - "grub-common"
 
 # Use Docker defaults if running in Docker, otherwise use VM defaults
