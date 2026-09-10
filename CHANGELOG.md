@@ -40,6 +40,17 @@ pipeline. See `packaging/`.
 - **ImageMagick is version 7, not 6.** `magick` is now the primary command and the
   version 7 documentation online applies. The version 6 commands `convert`, `identify`
   and `mogrify` are still installed and still work, so existing scripts keep running.
+- **A text editor, a media player and a calculator are installed.** ViPER shipped with
+  none of the three. Nothing handled `text/plain` or `text/csv` at all, so JHOVE, veraPDF
+  and DROID output opened nothing on a double click, and MATE listed HandBrake as the
+  media player because it registers video types while being a transcoder. pluma, mpv and
+  mate-calc fill those gaps, and the default application for each file type is now stated
+  rather than left to whichever launcher the mime cache happened to order first.
+  ImageMagick's `display` no longer offers itself as an image viewer; Eye of MATE was
+  always the one that opened.
+- **The terminal prompt is readable.** It used cyan on a light background with a yellow
+  marker. The path now uses the terminal's own foreground, so it contrasts whatever theme
+  is in use.
 - **GIMP is version 3, not 2.10.** Ubuntu 26.04 ships GIMP 3.2, which is a major
   upgrade with a reworked interface and a new native file format. GIMP 2.10 `.xcf` files
   still open. Inkscape moves 1.2 to 1.4 and HandBrake 1.7 to 1.11 in the same way, both
