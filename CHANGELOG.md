@@ -7,7 +7,12 @@ The GitHub "What's Changed" list is generated from pull request titles and does 
 surface behaviour changes that affect existing users. Those belong here, under
 **Behaviour changes**, so they can be lifted straight into release notes.
 
-## v2.0.0 (unreleased)
+## v2.0.0-alpha (unreleased)
+
+**An alpha, for evaluation rather than production work.** The pipeline that builds it is
+proved end to end, but the appliance itself has had little human use: the operating
+system, the container base and two of the bundled tools have all changed at once. Treat
+this as the release to break, and read the known limitations below before relying on it.
 
 The last release of the 1.x line was v1.4.0-alpha. This is a major version because the
 container is rebuilt on a different base and the appliance moves to a new operating
@@ -52,6 +57,40 @@ pipeline. See `packaging/`.
   ViPER has shipped both for some time and the notes only mentioned the appliance.
 - `p7zip-full` was dropped by Ubuntu and is replaced by `7zip`. This is invisible in
   use: `7z`, `7za`, `7zr` and `p7zip` are all still provided.
+
+### Known limitations
+
+Checked against a built v2.0.0 image rather than carried over from v1.4.0.
+
+- **The OVA is not VMware compatible.** The descriptor declares
+  `VirtualSystemType = virtualbox-2.2` where VMware expects `vmx-NN`, and `ovftool`
+  acceptance is still unverified. See #75.
+- **`manifest.json` records intent, not measurement.** It captures the tag Ansible was
+  told to install rather than a checksum of what landed on disk. It also distinguishes
+  the two appliances only by `"platform"`, which reads `"vm"` or `"container"`.
+- **QtWebKit is unmaintained upstream.** MediaConch's GUI needs it, Ubuntu 26.04 dropped
+  it, and no distribution still ships it. ViPER builds it from the 2020 alpha4 release
+  with a patch stack borrowed from Arch and Fedora plus one fix of our own for CMake 4.
+  It renders only the HTML reports MediaConch generates locally, never remote content, so
+  the exposure is narrow, but it is a dead browser engine and it is ours to maintain.
+- **MediaConch itself is stalled upstream.** 25.04 is the newest build of any kind, from
+  April 2025, and the source has had no commit since 2021.
+- **Firefox comes from the Linux Mint repository**, built against Ubuntu 24.04 and
+  installed on 26.04. It runs with no missing libraries, but it is not the combination
+  Mint tests. Ubuntu's own package is a stub that installs a snap and ships no launcher.
+- **The ViPER-built packages are fetched from the artifact server at build time**, pinned
+  by sha256. A release therefore depends on that server being reachable. Moving the deb
+  build inside the release pipeline is agreed but not yet done.
+- **`grub-pc` is removed** so a single-OS appliance shows no boot menu, confirmed by
+  booting a pristine image. The MBR and `/boot/grub/i386-pc/` are not package-owned so it
+  still boots, but a future kernel upgrade would leave `grub.cfg` stale. After an unclean
+  shutdown GRUB sets `recordfail` and does show a timed menu.
+- **The ISO is pinned at Ubuntu 26.04.1.** Measure the install rate before bumping it: a
+  Debian point release bump once made the unattended install roughly ten times slower and
+  cost a day. Measured for this release at 19m11s locally and 21m13s in CI.
+- **`spice-vdagent` is installed but never explicitly enabled**, unlike the VirtualBox and
+  QEMU agents. Automatic resizing and clipboard sharing under SPICE are untested; the
+  builds were verified over VNC.
 
 ## v1.4.0-alpha (2026-09-09)
 
