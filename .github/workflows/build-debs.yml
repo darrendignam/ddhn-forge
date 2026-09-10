@@ -14,6 +14,11 @@ name: Build ViPER debs
 on:
   workflow_dispatch:
   push:
+    # branches is required, not decoration. GitHub ignores path filters on tag pushes
+    # because there is no base to diff against, so without this every tag ran a redundant
+    # fifty minute QtWebKit build alongside the release that was already building its own.
+    branches:
+      - '**'
     paths:
       - 'packaging/**'
       - '.github/workflows/build-debs.yml'
