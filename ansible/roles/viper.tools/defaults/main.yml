@@ -17,10 +17,18 @@ viper_account_name: "{{ viper_env_user_name | default('viper') }}"
 # account in one place and every launcher in another, with no error.
 viper_account_home: "{{ viper_env_user_home | default('/home/' + viper_account_name) }}"
 
-# Where the packages ViPER builds for itself are published. Overridable so a local build
-# can be tested without publishing: point it at a file:// path or a local HTTP server.
-# See packaging/ for what produces them and viper.tools.viper_built for the list.
-viper_built_deb_base: "https://artifacts.opf-labs.org/download/darrendignam-ddhn-forge/deb-ubuntu-26.04"
+# Where to fetch the packages ViPER builds for itself. Deliberately empty: there is no
+# safe default.
+#
+# The release workflow builds these during the run and serves them over loopback, so it
+# sets this to the runner's address and nothing outside the run is trusted. Those debs
+# carry no sha256, because the format records timestamps and the changelog date so an
+# identical recipe does not produce an identical file.
+#
+# A default pointing at a remote file server would therefore mean an unverified fetch of
+# packages that get installed as root. Failing fast is better: pass the variable, either
+# at a local HTTP server serving packaging/ output, or at a published set you trust.
+viper_built_deb_base: ""
 
 # Tools installed via Debian package manager
 viper_debian_tools:
@@ -276,12 +284,9 @@ viper:
       - name: "libqt5webkit5"
         download_url: "{{ viper_built_deb_base }}/libqt5webkit5_5.212.0~alpha4-36viper1_amd64.deb"
         package_name: "libqt5webkit5_5.212.0~alpha4-36viper1_amd64.deb"
-        sha256: "f0b4933473c3c04a0a71d16e8d549052e9ac737aaf67b0613295e9d5c07ceb7e"
       - name: "mediaconch"
         download_url: "{{ viper_built_deb_base }}/mediaconch_25.04-1viper1_amd64.deb"
         package_name: "mediaconch_25.04-1viper1_amd64.deb"
-        sha256: "7b8e2767f0accbf56ad78176a6a4a65c6303f74f6cb6882cc77e76cd6d792c63"
       - name: "mediaconch-gui"
         download_url: "{{ viper_built_deb_base }}/mediaconch-gui_25.04-1viper1_amd64.deb"
         package_name: "mediaconch-gui_25.04-1viper1_amd64.deb"
-        sha256: "e849bea3f30b4d14214c66bae588fdc59ce4b80819fac24e1220600791fe5afa"

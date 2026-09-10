@@ -9,14 +9,20 @@
 # and MediaArea's pinned build never landed. get_url and apt are both idempotent on their
 # own terms, so the guard bought nothing and hid a real failure.
 #
-# Every entry carries a sha256: these arrive over plain HTTPS from a file server with no
-# package signing, so the hash is the only thing tying what gets installed as root to
-# what was reviewed.
+# MediaArea's entries carry a sha256: those arrive over plain HTTPS from a file server
+# with no package signing, so the hash is the only thing tying what gets installed as
+# root to what was reviewed.
+#
+# The packages ViPER builds itself do not, and must not. They are compiled during the
+# same workflow run and served over loopback, so their bytes differ every build: the deb
+# format records timestamps and the changelog date, so an identical recipe does not
+# produce an identical file. Trust for those comes from the pinned source tarball
+# checksums in packaging/, which is the thing actually worth pinning.
 - name: "Package Install | Download Debian package for {{ item.name }}."
   get_url:
     url: "{{ item.download_url }}"
     dest: "/tmp/{{ item.package_name }}"
-    checksum: "sha256:{{ item.sha256 }}"
+    checksum: "{{ ('sha256:' + item.sha256) if item.sha256 is defined else omit }}"
     mode: "0644"
 
 - name: "Package Install | Install Debian package for {{ item.name }}."

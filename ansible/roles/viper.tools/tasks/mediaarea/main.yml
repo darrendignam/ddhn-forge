@@ -12,6 +12,15 @@
   include_tasks: toolInstall.yml
   with_items: "{{ viper.tools.mediaarea }}"
 
+- name: "ViPER Built | Fail early if no source for the ViPER-built packages was given."
+  fail:
+    msg: >-
+      viper_built_deb_base is not set. These packages are built by the release workflow
+      and served over loopback during the run; there is no safe remote default because
+      they carry no checksum. Point it at a local HTTP server serving packaging/ output,
+      or at a published set you trust.
+  when: viper_built_deb_base | default('') | length == 0
+
 - name: "ViPER Built | Install packages ViPER builds for Ubuntu 26.04."
   include_tasks: toolInstall.yml
   with_items: "{{ viper.tools.viper_built }}"

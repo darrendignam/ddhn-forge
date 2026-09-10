@@ -98,9 +98,88 @@ jobs:
           echo "Building viper-${VERSION_SAFE} for ${REPO_SAFE}"
 
 
+  debs:
+    name: Build ViPER debs
+    needs: meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Keyed on the build inputs, not the commit. The debs are reproducible from the
+      # pinned source version plus the vendored patches, so an unrelated commit must not
+      # trigger a 50 minute rebuild. Only a real change to the recipe pays that cost.
+      - name: Key the cache on the build inputs
+        id: key
+        run: |
+          set -euo pipefail
+          h=$(cat packaging/qtwebkit/Dockerfile packaging/qtwebkit/build.sh \
+                  packaging/qtwebkit/patches/* packaging/mediaconch/Dockerfile \
+                  packaging/mediaconch/build.sh | sha256sum | cut -c1-32)
+          echo "hash=${h}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore a previous build
+        id: cache
+        uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: viper-debs
+          key: viper-debs-${{ steps.key.outputs.hash }}
+
+      - name: Build QtWebKit and MediaConch
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p qtwebkit-out viper-debs
+          docker build -t viper-qtwebkit-build:26.04 packaging/qtwebkit
+          docker run --rm -v "${PWD}/qtwebkit-out:/out" viper-qtwebkit-build:26.04
+          docker build -t viper-mediaconch-build:26.04 packaging/mediaconch
+          docker run --rm \
+            -v "${PWD}/qtwebkit-out:/qtwebkit:ro" \
+            -v "${PWD}/viper-debs:/out" \
+            viper-mediaconch-build:26.04
+          # Only what viper.tools installs. libmediaconch0 and libmediaconch-dev come out
+          # empty because the library is linked statically into each binary.
+          cp qtwebkit-out/libqt5webkit5_*.deb viper-debs/
+          rm -f viper-debs/libmediaconch*.deb viper-debs/mediaconch-server*.deb
+          ls -la viper-debs/
+
+      - name: Save the build
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: viper-debs
+          key: viper-debs-${{ steps.key.outputs.hash }}
+
+      # A repackage of noble's deb would still name libicu74 and libxml2, so this is the
+      # cheapest proof the tree was genuinely compiled against 26.04. Runs on a cache hit
+      # too, so a poisoned cache cannot slip through.
+      - name: Verify the debs were built against 26.04
+        run: |
+          set -euo pipefail
+          for want in libicu78 libxml2-16 qtbase-abi-5-15-18; do
+            if dpkg-deb -f viper-debs/libqt5webkit5_*.deb Depends | grep -q "${want}"; then
+              echo "ok   ${want}"
+            else
+              echo "::error::libqt5webkit5 does not depend on ${want}; not built against 26.04."
+              exit 1
+            fi
+          done
+          for n in libqt5webkit5 mediaconch mediaconch-gui; do
+            ls viper-debs/${n}_*.deb >/dev/null || { echo "::error::${n} deb missing"; exit 1; }
+          done
+          sha256sum viper-debs/*.deb
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: viper-debs
+          path: viper-debs/*.deb
+          retention-days: 1
+
+
   container:
     name: Build container image
-    needs: meta
+    needs: [meta, debs]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -158,10 +237,31 @@ jobs:
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/requirements.yml
 
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: viper-debs
+          path: viper-debs
+
+      # Served over HTTP rather than published to the artifact server, so a release
+      # depends on nothing outside this run. get_url runs inside the container, which
+      # reaches the runner on the docker bridge gateway.
+      - name: Serve the debs to the container
+        run: |
+          set -euo pipefail
+          cd viper-debs && nohup python3 -m http.server 8899 --bind 0.0.0.0 >/dev/null 2>&1 &
+          for _ in $(seq 1 20); do
+            curl -sf -o /dev/null "http://127.0.0.1:8899/" && break
+            sleep 1
+          done
+          gw=$(docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}')
+          echo "DEB_BASE=http://${gw}:8899" >> "$GITHUB_ENV"
+          echo "serving debs at http://${gw}:8899"
+
       - name: Build container with Ansible provisioning
         run: |
           cd ansible
-          ansible-playbook docker-viper.yml -i inventory.docker.yml
+          ansible-playbook docker-viper.yml -i inventory.docker.yml \
+            -e "viper_built_deb_base=${DEB_BASE}"
 
       - name: Commit container to image
         id: commit
@@ -260,7 +360,7 @@ jobs:
 
   vm-build:
     name: Build VM image
-    needs: meta
+    needs: [meta, debs]
     runs-on: ubuntu-latest
     # The local reference build takes 1h42m on a ~225 KB/s link. Runners fetch far
     # faster so this should not be approached, but a slow Debian mirror costs the
@@ -392,6 +492,24 @@ jobs:
           path: /mnt/packer/iso
           key: iso-${{ steps.iso.outputs.sha256 }}
 
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: viper-debs
+          path: viper-debs
+
+      # Same idea as the container job, different address: QEMU's user-mode networking
+      # puts the runner at 10.0.2.2 from inside the guest, where Ansible runs get_url.
+      - name: Serve the debs to the VM
+        run: |
+          set -euo pipefail
+          cd viper-debs && nohup python3 -m http.server 8899 --bind 0.0.0.0 >/dev/null 2>&1 &
+          for _ in $(seq 1 20); do
+            curl -sf -o /dev/null "http://127.0.0.1:8899/" && break
+            sleep 1
+          done
+          echo "DEB_BASE=http://10.0.2.2:8899" >> "$GITHUB_ENV"
+          echo "serving debs at http://10.0.2.2:8899 as seen from the guest"
+
       - name: Build image
         env:
           VERSION_SAFE: ${{ needs.meta.outputs.version_safe }}
@@ -404,6 +522,7 @@ jobs:
             -var 'output_directory=/mnt/packer/output-qemu' \
             -var "cpus=${VM_CPUS}" \
             -var "memory=${VM_MEMORY}" \
+            -var "viper_built_deb_base=${DEB_BASE}" \
             viper.pkr.hcl
           df -h /mnt
 
