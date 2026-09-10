@@ -319,7 +319,7 @@
 #
 # /etc/xdg/mimeapps.list is the system-wide default list, so this covers both the VM and
 # the container and applies to every account rather than only the one the container runs.
-- name: "DESKTOP | Make mpv the default for audio and video."
+- name: "DESKTOP | State the default application for each file type."
   copy:
     dest: /etc/xdg/mimeapps.list
     owner: root
@@ -327,8 +327,10 @@
     mode: '0644'
     content: |
       [Default Applications]
-      {% for t in viper_media_mime_types %}
-      {{ t }}=mpv.desktop
+      {% for app, types in viper_mime_defaults.items() %}
+      {% for t in types %}
+      {{ t }}={{ app }}
+      {% endfor %}
       {% endfor %}
 
 # ImageMagick's "display" is a debugging tool with an interface nobody wants to meet by

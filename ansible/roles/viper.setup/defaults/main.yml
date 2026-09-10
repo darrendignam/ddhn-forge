@@ -112,25 +112,49 @@ viper_env_apt_docker_defaults:
   - "zsh-syntax-highlighting"
   - "zsh-autosuggestions"
 
-# Audio and video types that should open in a player rather than in HandBrake, which
-# claims them all because it transcodes them. Matroska and the FFV1 that lives inside it
-# are first on purpose: they are what MediaConch validates, so being able to watch one is
-# part of the job.
-viper_media_mime_types:
-  - "video/x-matroska"
-  - "video/mp4"
-  - "video/quicktime"
-  - "video/x-msvideo"
-  - "video/mpeg"
-  - "video/x-ms-wmv"
-  - "video/webm"
-  - "video/ogg"
-  - "audio/mpeg"
-  - "audio/x-wav"
-  - "audio/flac"
-  - "audio/ogg"
-  - "audio/mp4"
-  - "audio/aac"
+# Default applications, stated rather than left to chance.
+#
+# With nothing pinned, the winner is whichever .desktop the mime cache happens to order
+# first, and that moves whenever any launcher changes: hiding ImageMagick was enough to
+# hand TIFF from the image viewer to Atril, the PDF reader. The tools here emit CSV and
+# XML and the corpus is image and video, so these are the associations a practitioner
+# actually meets.
+viper_mime_defaults:
+  # Audio and video go to a player rather than HandBrake, which claims every video type
+  # because it transcodes them. Matroska is first on purpose: it and the FFV1 inside it
+  # are what MediaConch validates, so being able to watch one is part of the job.
+  mpv.desktop:
+    - "video/x-matroska"
+    - "video/mp4"
+    - "video/quicktime"
+    - "video/x-msvideo"
+    - "video/mpeg"
+    - "video/x-ms-wmv"
+    - "video/webm"
+    - "video/ogg"
+    - "audio/mpeg"
+    - "audio/x-wav"
+    - "audio/flac"
+    - "audio/ogg"
+    - "audio/mp4"
+    - "audio/aac"
+  # Eye of MATE, not Atril and not ImageMagick's display. TIFF matters most: it is the
+  # format most likely to arrive in a preservation workflow.
+  eom.desktop:
+    - "image/tiff"
+    - "image/jpeg"
+    - "image/png"
+    - "image/gif"
+    - "image/bmp"
+    - "image/webp"
+  # Tool output. DROID writes CSV and nothing claimed it at all, so a report opened
+  # nothing on a double click. XML is left to Firefox, which renders it as a collapsible
+  # tree and is the friendlier reader for a JHOVE or veraPDF report.
+  pluma.desktop:
+    - "text/plain"
+    - "text/csv"
+    - "text/tab-separated-values"
+    - "application/json"
 
 # mintMenu Favorites, in display order. Preservation tools first, because they are the
 # reason the appliance exists, then the viewers and editors they hand off to, then the
